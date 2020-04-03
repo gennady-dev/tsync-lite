@@ -1,0 +1,2 @@
+rootProject.name='Telestorage Lite'
+include ':app'
