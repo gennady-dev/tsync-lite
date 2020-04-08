@@ -1,3 +1,67 @@
 <resources>
     <string name="app_name">Telestorage Lite</string>
+    <string name="phone_title_label">Enter your phone number</string>
+    <string name="text_settings_phone_hint">Phone</string>
+    <string name="phone_number_label">Phone number</string>
+    <string name="phone_number_hint">in international format</string>
+    <string name="button_ok">Ok</string>
+    <string name="button_create_channel">Create new channel</string>
+    <string name="button_select_existing">Select existing</string>
+    <string name="input_setting_code_title">Code from sms or telegram message</string>
+    <string name="code_title_label">Enter code from sms or telegram message</string>
+    <string name="code_number_hint">only digits</string>
+    <string name="message_ok">You are successfully logged in</string>
+    <string name="text_select_group">Select a group for storing files</string>
+    <string name="text_channel_created">Channel was successfully created</string>
+    <string name="text_channel_updated">Channel was updated</string>
+
+    <string name="text_settings_not_logged">Before, you should log in Telegram</string>
+    <string name="text_settings_not_set_group">Before, you should set telegram group</string>
+
+    <string name="text_settings_synced_folders">Synced folders</string>
+    <string name="text_settings_current_folder">Current folder</string>
+    <string name="text_settings_folder_path">/fgsdgfdfg/sdfgdfg/sdfgdfg/sdfgdfg/sdfgdfg/sdfg</string>
+    <string name="text_settings_edit_folder">Edit folders</string>
+    <string name="text_settings_folder_not_set">folder not set</string>
+    <string name="text_settings_selected_group">Selected group</string>
+    <string name="text_settings_cloud">Cloud</string>
+    <string name="text_settings_clear">Clear</string>
+    <string name="text_settings_selected_group_title">Selected group</string>
+    <string name="text_settings_selected_group_name">Group name</string>
+    <string name="text_settings_edit_group">Edit group</string>
+    <string name="text_settings_group_not_set">group not set</string>
+
+    <string name="button_settings_login">login</string>
+    <string name="button_settings_logout">logout</string>
+    <string name="text_settings_tg_state">Telegram</string>
+
+    <string name="text_settings_sync_enabled">Sync enabled</string>
+    <string name="text_settings_sync_disabled">Sync disabled</string>
+    <string name="text_settings_sync_desc">Sync state image</string>
+
+    <string name="text_settings_delete_uploaded_title">Delete uploaded</string>
+    <string name="text_settings_will_be_deleted">Files will be deleted after upload</string>
+    <string name="text_settings_will_not_be_deleted">Files will not be deleted after upload</string>
+
+    <string name="text_settings_download_missing_title">Download missing</string>
+    <string name="text_settings_download_missing_desc">Missing files will be downloaded</string>
+
+    <string name="text_settings_upload_as_media_title">Upload as media</string>
+    <string name="text_settings_upload_as_media_image">Upload as media</string>
+    <string name="text_settings_upload_as_media">Files will be uploaded as media files</string>
+    <string name="text_settings_upload_as_document">Files will be uploaded as documents</string>
+
+    <string name="text_settings_default_group_name_title">Group name</string>
+    <string name="text_settings_default_group_name_hint">Enter group name</string>
+    <string name="text_settings_default_group_name_text">My cloud storage</string>
+    <string name="text_settings_creating_group">Creating group...</string>
+
+    <string name="folder_chooser_choose_folder">Choose a folder</string>
+    <string name="folder_chooser_choose">Choose</string>
+    <string name="folder_chooser_cancel">Cancel</string>
+
+    <string-array name="group_list">
+        <item>Create new channel</item>
+        <item>Select existing</item>
+    </string-array>
 </resources>
