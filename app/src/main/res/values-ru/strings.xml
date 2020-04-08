@@ -1,0 +1,67 @@
+<resources>
+    <string name="app_name">Telestorage Lite</string>
+    <string name="phone_title_label">Укажите номер телефона</string>
+    <string name="text_settings_phone_hint">Телефон</string>
+    <string name="phone_number_label">Номер телефона</string>
+    <string name="phone_number_hint">в международном формате</string>
+    <string name="button_ok">Ok</string>
+    <string name="button_create_channel">Создать новый канал</string>
+    <string name="button_select_existing">Выбрать из существующих</string>
+    <string name="input_setting_code_title">Код из смс или сообщения в Телеграме</string>
+    <string name="code_title_label">Введите код подтверждения из смс или сообщения в Телеграм</string>
+    <string name="code_number_hint">только цифры</string>
+    <string name="message_ok">Приложение авторизовано</string>
+    <string name="text_select_group">Выберите группу для сохранения файлов</string>
+    <string name="text_channel_created">Канал создан</string>
+    <string name="text_channel_updated">Канал обновлен</string>
+
+    <string name="text_settings_not_logged">Прежде следует авторизоваться в Телеграм</string>
+    <string name="text_settings_not_set_group">Установите группу/канал для синхронизации</string>
+
+    <string name="text_settings_synced_folders">Директория</string>
+    <string name="text_settings_current_folder">текущая</string>
+    <string name="text_settings_folder_path">/fgsdgfdfg/sdfgdfg/sdfgdfg/sdfgdfg/sdfgdfg/sdfg</string>
+    <string name="text_settings_edit_folder">Редактировать</string>
+    <string name="text_settings_folder_not_set">не указано</string>
+    <string name="text_settings_selected_group">Выбранная группа</string>
+    <string name="text_settings_cloud">Облако</string>
+    <string name="text_settings_clear">Очистить</string>
+    <string name="text_settings_selected_group_title">Выбранная группа</string>
+    <string name="text_settings_selected_group_name">Имя группы</string>
+    <string name="text_settings_edit_group">Редактировать</string>
+    <string name="text_settings_group_not_set">не указано</string>
+
+    <string name="button_settings_login">войти</string>
+    <string name="button_settings_logout">выйти</string>
+    <string name="text_settings_tg_state">Telegram</string>
+
+    <string name="text_settings_sync_enabled">Синхронизация включена</string>
+    <string name="text_settings_sync_disabled">Синхронизация выключена</string>
+    <string name="text_settings_sync_desc">Статус синхронизации</string>
+
+    <string name="text_settings_delete_uploaded_title">Удалять выгруженные</string>
+    <string name="text_settings_will_be_deleted">Локальные файлы будут удалены после выгрузки</string>
+    <string name="text_settings_will_not_be_deleted">Локальные файлы не будут удалены после выгрузки</string>
+
+    <string name="text_settings_download_missing_title">Загружать отсутствующие</string>
+    <string name="text_settings_download_missing_desc">Отсутствующие локально файлы будут загружены из группы</string>
+
+    <string name="text_settings_upload_as_media_title">Выгружать как медиа</string>
+    <string name="text_settings_upload_as_media_image">Выгружать как медиа</string>
+    <string name="text_settings_upload_as_media">Файлы будут выгружены как медиа</string>
+    <string name="text_settings_upload_as_document">Файлы будут выгружены как документы</string>
+
+    <string name="text_settings_default_group_name_title">Имя группы</string>
+    <string name="text_settings_default_group_name_hint">укажите имя группы</string>
+    <string name="text_settings_default_group_name_text">Мой канал</string>
+    <string name="text_settings_creating_group">Создается канал...</string>
+
+    <string name="folder_chooser_choose_folder">Выберите директорию</string>
+    <string name="folder_chooser_choose">Выбрать</string>
+    <string name="folder_chooser_cancel">Отмена</string>
+
+    <string-array name="group_list">
+        <item>Создать новый канал</item>
+        <item>Выбрать из существующих</item>
+    </string-array>
+</resources>
