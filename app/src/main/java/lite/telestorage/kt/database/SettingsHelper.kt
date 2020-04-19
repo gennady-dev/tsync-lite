@@ -10,97 +10,83 @@ import lite.telestorage.kt.database.DbSchema.SettingsTable.Cols
 import lite.telestorage.kt.models.Settings
 
 
-class SettingsHelper private constructor() {
+object SettingsHelper {
 
-  private var database: SQLiteDatabase? = null
+//  private var holder: Settings? = null
 
-  fun addSettings(s: Settings) {
-      val values = getContentValues(s)
-      database?.insert(SettingsTable.NAME, null, values)
-  }
+  private val database: SQLiteDatabase?
+    get() = ContextHolder.context?.let { BaseHelper(it).writableDatabase }
 
-  val settings: Settings?
-    get() {
-      val cursor = querySettings()
-      return try {
-        if(cursor == null || cursor.count == 0) {
-          return null
-        }
-        cursor.moveToFirst()
-        cursor.settings
-      } finally {
-        cursor?.close()
+  var settings: Settings
+//    get() = holder.let {
+//      it ?: querySettings().use { cursor ->
+//        if(cursor == null || cursor.count == 0) {
+//          val newSet = Settings()
+//          holder = newSet
+//          add(newSet)
+//          newSet
+//        } else {
+//          cursor.moveToFirst()
+//          cursor.settings
+//        }
+//      }
+//    }
+
+  init {
+    settings = querySettings().use {
+      if(it == null || it.count == 0) {
+        val newSet = Settings()
+        add(newSet)
+        newSet
+      } else {
+        it.moveToFirst()
+        it.settings
       }
     }
+  }
 
-  fun updateSettings(s: Settings) {
-      val values = getContentValues(s)
-      if(settings == null) {
-        database?.insert(SettingsTable.NAME, null, values)
-      } else {
-        val uuid: String = settings?.uuid.toString()
-        database?.update(
-          SettingsTable.NAME,
-          values,
-          Cols.UUID + " = ? ",
-          arrayOf(uuid)
-        )
-      }
+  fun add(newSet: Settings) {
+    val values = getContentValues(newSet)
+    database?.insert(SettingsTable.NAME, null, values)
+  }
+
+  fun update(newSet: Settings) {
+    val values = getContentValues(newSet)
+    database?.update(
+      SettingsTable.NAME, values, Cols.UUID + " = ? ", arrayOf(newSet.uuid.toString())
+    )
+    settings = newSet
   }
 
   private fun querySettings(): SettingsCursor? {
-    val cursor = database?.query(
+    return database?.query(
       SettingsTable.NAME,
-      null,  // columns - с null выбираются все столбцы
+      null, // columns - с null выбираются все столбцы
       null,
       null,
-      null,  // groupBy
-      null,  // having
+      null, // groupBy
+      null, // having
       null // orderBy
-    )
-    if(cursor != null){
-      return SettingsCursor(cursor)
-    }
-    return null
+    )?.let { SettingsCursor(it) }
   }
 
-  companion object {
-
-    private var instance: SettingsHelper? = null
-
-    fun get(): SettingsHelper? {
-      if(instance == null) {
-        instance = SettingsHelper()
-      }
-      return instance
-    }
-
-    private fun getContentValues(settings: Settings): ContentValues? {
-      if(settings != null){
-        val values = ContentValues()
-        values.put(Cols.UUID, settings.uuid.toString())
-        values.put(Cols.AUTHENTICATED, if(settings.authenticated) 1 else 0)
-        values.put(Cols.CHAT_ID, settings.chatId)
-        values.put(Cols.SUPERGROUP_ID, settings.supergroupId)
-        values.put(Cols.ENABLED, if(settings.enabled) 1 else 0)
-        values.put(Cols.TITLE, settings.title)
-        values.put(Cols.IS_CHANNEL, if(settings.isChannel) 1 else 0)
-        values.put(Cols.PATH, settings.path)
-        values.put(Cols.AS_MEDIA, if(settings.uploadAsMedia) 1 else 0)
-        values.put(Cols.DELETE_UPLOADED, if(settings.deleteUploaded) 1 else 0)
-        values.put(Cols.DOWNLOAD_MISSING, if(settings.downloadMissing) 1 else 0)
-        values.put(Cols.MESSAGES_DOWNLOADED, settings.messagesDownloaded)
-        values.put(Cols.LAST_UPDATE, settings.lastUpdate)
-        return values
-      }
-      return null;
-    }
+  private fun getContentValues(settings: Settings): ContentValues {
+    val values = ContentValues()
+    values.put(Cols.UUID, settings.uuid.toString())
+    values.put(Cols.AUTHENTICATED, if(settings.authenticated) 1 else 0)
+    values.put(Cols.CHAT_ID, settings.chatId)
+    values.put(Cols.SUPERGROUP_ID, settings.supergroupId)
+    values.put(Cols.ENABLED, if(settings.enabled) 1 else 0)
+    values.put(Cols.TITLE, settings.title)
+    values.put(Cols.IS_CHANNEL, if(settings.isChannel) 1 else 0)
+    values.put(Cols.PATH, settings.path)
+    values.put(Cols.AS_MEDIA, if(settings.uploadAsMedia) 1 else 0)
+    values.put(Cols.DELETE_UPLOADED, if(settings.deleteUploaded) 1 else 0)
+    values.put(Cols.DOWNLOAD_MISSING, if(settings.downloadMissing) 1 else 0)
+    values.put(Cols.MESSAGES_DOWNLOADED, settings.messagesDownloaded)
+    values.put(Cols.LAST_UPDATE, settings.lastUpdate)
+    return values
   }
 
-  init {
-    if(ContextHolder.get() != null) { //TODO
 //mDatabase = new BaseHelper(CurrentContext.get().getContext()).getWritableDatabase(BuildConfig.DB_SECRET);
-      database = BaseHelper(ContextHolder.get()).writableDatabase
-    }
-  }
 }

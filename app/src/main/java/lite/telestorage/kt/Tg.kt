@@ -3,51 +3,32 @@ package lite.telestorage.kt
 import android.os.Build
 import android.text.TextUtils
 import android.util.Log
-import android.widget.Switch
-import android.widget.TextView
+
 import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.kt.database.SettingsHelper
 import lite.telestorage.kt.models.FileData
-import lite.telestorage.kt.models.Settings
 import org.drinkless.td.libcore.telegram.Client
 import org.drinkless.td.libcore.telegram.Client.ResultHandler
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
 import java.io.IOException
-import java.util.*
+import java.util.NavigableSet
+import java.util.TreeSet
+import java.util.Arrays
+import java.util.Date
 import kotlin.collections.ArrayList
 
 
-class Tg private constructor() {
+object Tg {
 
-  private fun createClient() {
-    if(client == null) {
-      updateHandler = UpdateHandler()
-      client = Client.create(
-        updateHandler, UpdateExceptionHandler(), DefaultExceptionHandler()
-      )
-    }
-  }
-
-  fun logout() {
-    if(updateHandler != null) {
-      client?.send(TdApi.LogOut(), updateHandler)
-    }
-  }
-
+  var syncStatus: SettingsFragment.SyncStatus? = null
+  const val tdLibPath = Constants.tdLibPath
+  private var authorizationState: TdApi.AuthorizationState? = null
   var settingsFragment: SettingsFragment? = null
-  var groupNameTextView: TextView? = null
-  var mSwitchSync: Switch? = null
-//  var mainActivity: MainActivity? = null
-  var mLimit = 100
-  var mI = 0
   private var TAG: String? = null
   var client: Client? = null
-  var updateHandler: UpdateHandler? = null
+  var updateHandler = UpdateHandler()
   private var authorizationRequestHandler = AuthorizationRequestHandler()
   var settings: Settings? = null
-//  var settingsHelper: SettingsHelper? = null
-//  var fileHelper: FileHelper? = null
   var waitingCreatedChat = false
   var waitingSuperGroupResponse = false
   var memberStatusBanned = false
@@ -56,7 +37,31 @@ class Tg private constructor() {
   var uploadingInProgress: Long = 0
   private val uploadingLock = Any()
   private val downloadingLock = Any()
-  var authorizationState: TdApi.AuthorizationState? = null
+  private val mainChatList: NavigableSet<OrderedChat> = TreeSet()
+
+  var haveAuthorization = false
+  var authorizationStateWaitPhoneNumber = false
+  var isConnected = false
+  var needUpdate = false
+
+  private val newLine = System.getProperty("line.separator")
+  private val users: MutableMap<Int, TdApi.User> = mutableMapOf()
+  private val chats: MutableMap<Long, TdApi.Chat> = mutableMapOf()
+  private val basicGroups: MutableMap<Int, TdApi.BasicGroup> = mutableMapOf()
+  private val superGroups: MutableMap<Int, TdApi.Supergroup> = mutableMapOf()
+  private val secretChats: MutableMap<Int, TdApi.SecretChat> = mutableMapOf()
+  private var haveFullMainChatList = false
+  private val usersFullInfo: MutableMap<Int, TdApi.UserFullInfo> = mutableMapOf()
+  private val basicGroupsFullInfo: MutableMap<Int, TdApi.BasicGroupFullInfo> = mutableMapOf()
+  private val superGroupFullInfo: MutableMap<Int, TdApi.SupergroupFullInfo> = mutableMapOf()
+
+  init {
+    client = Client.create(updateHandler, UpdateExceptionHandler(), DefaultExceptionHandler())
+  }
+
+  fun logout() {
+    client?.send(TdApi.LogOut(), updateHandler)
+  }
 
   private fun onAuthorizationStateUpdated(state: TdApi.AuthorizationState?) {
 
@@ -121,9 +126,7 @@ class Tg private constructor() {
         Log.d(null, "AuthorizationStateReady")
         haveAuthorization = true
         settingsFragment?.setLogged(true)
-        settings = settingsHelper?.settings
-        settings?.authenticated = true
-        settings?.let { settingsHelper?.updateSettings(it) }
+        setMainChatList(10)
         Sync.start()
       }
       TdApi.AuthorizationStateLoggingOut.CONSTRUCTOR -> {
@@ -140,10 +143,7 @@ class Tg private constructor() {
         Log.d(null, "AuthorizationStateClosed")
         haveAuthorization = false
         Log.d(TAG, "Closed")
-        if(settingsFragment != null) {
-          settingsFragment?.setLogged(false)
-          instance = null
-        }
+        settingsFragment?.setLogged(false)
       }
       else -> Log.d(null, "Unsupported authorization state $state")
     }
@@ -170,18 +170,24 @@ class Tg private constructor() {
 
   fun downloadNextFile() {
     Sync.updateDataTransferProgressStatus()
-    val settings = settingsHelper?.settings
-    if(Sync.dataTransferInProgress == 0L && settings != null && settings.downloadMissing) {
-      val nextFile: FileData? = fileHelper?.nextDownloadingFile
-      if(nextFile != null && nextFile.id != 0 && nextFile.uniqueId != null) {
+    if(Data.dataTransferInProgress == 0L && Settings.downloadMissing) {
+      val nextFile: FileData? = FileHelper.nextDownloadingFile
+      if(nextFile != null && nextFile.fileId != 0 && nextFile.fileUniqueId != null) {
         nextFile.inProgress = true
-        fileHelper?.updateFile(nextFile)
-        Sync.dataTransferInProgress = Date().time
-        Sync.updateProgressStatus()
-        client?.send(TdApi.DownloadFile(nextFile.id, 32, 0, 0, true), updateHandler)
+        FileHelper.updateFile(nextFile)
+        Data.dataTransferInProgress = Date().time
+        client?.send(TdApi.DownloadFile(nextFile.fileId, 32, 0, 0, true), updateHandler)
       }
     }
-    Sync.updateProgressStatus()
+  }
+
+  fun downloadFile(file: FileData) {
+    if(Data.dataTransferInProgress == 0L) {
+      if(file.fileId != 0) {
+        Data.dataTransferInProgress = Date().time
+        client?.send(TdApi.DownloadFile(file.fileId, 32, 0, 0, true), updateHandler)
+      }
+    }
   }
 
   fun dataTransferUpdateHandler(file: TdApi.File?) {
@@ -199,121 +205,117 @@ class Tg private constructor() {
       }
     }
     if(completed) {
-      Sync.dataTransferInProgress = 0
+      Data.dataTransferInProgress = 0
       Sync.nextDataTransfer()
     }
   }
 
   fun downloadingUpdate(file: TdApi.File) {
     if(file.local != null && file.local.isDownloadingActive && !file.local.isDownloadingCompleted) {
-      Sync.dataTransferInProgress = Date().time
+      Data.dataTransferInProgress = Date().time
       Sync.updateProgressStatus()
-      System.out.println("downloadingUpdate Sync.dataTransferInProgress " + Sync.dataTransferInProgress)
+      System.out.println("downloadingUpdate Data.dataTransferInProgress " + Data.dataTransferInProgress)
     }
     if(
       file.local != null
       && !file.local.isDownloadingActive
       && file.local.isDownloadingCompleted
       && file.local.path != null
-      && file.local.path.matches("$tdLibPath.+".toRegex())
+      && file.local.path.matches("$tdLibPath.+".toRegex(RegexOption.DOT_MATCHES_ALL))
       && file.id != 0
       && file.remote != null
       && file.remote.uniqueId != null
       && file.remote.uniqueId != ""
-      && fileHelper != null
     ) {
-      val localFiles: List<FileData> = fileHelper?.getFiles(
+      val localFiles: List<FileData> = FileHelper.getFiles(
         "file_id = ? AND file_unique_id = ? AND downloaded = 0",
         arrayOf(file.id.toString(), file.remote.uniqueId)
       ) ?: ArrayList<FileData>()
       if(localFiles.size == 1) {
         val fileData: FileData = localFiles[0]
         if(fileData.path != null) {
-          val pathParts: Array<String> = fileData.path?.let { it.split("/").toTypedArray() } ?: arrayOf()
-          val settings = settingsHelper?.settings
-          val downloadedFile = File(file.local.path)
-          if(settings != null) {
-            val localFile = fileData.path?.let {path ->
-              Fs.getFileAbsPath(path)?.let {File(it)}
-            }
-            if(localFile != null && !localFile.exists() && downloadedFile.exists()) {
-              if(pathParts.size == 1 && pathParts[0] != "") {
-                try {
-                  Fs.move(downloadedFile, localFile)
-                } catch(e: IOException) {
-                  println("DownloadingHandler IOException $e")
-                }
-              } else if(pathParts.size > 1 && Fs.storageAbsPath != null) {
-                val relativePath = TextUtils.join(
-                  "/", pathParts.copyOfRange(0, pathParts.size - 1)
-                )
-                val pathDirectory: File =
-                  java.io.File(Fs.storageAbsPath + "/" + relativePath)
-                var directoryExist: Boolean
-                if(pathDirectory.exists()) {
-                  directoryExist = true
-                  if(!pathDirectory.isDirectory) {
-                    directoryExist = false
-                  }
-                } else {
-                  directoryExist = pathDirectory.mkdirs()
-                }
-                if(directoryExist) {
+            val pathParts: Array<String> = fileData.path?.let { it.split("/").toTypedArray() } ?: arrayOf()
+            val downloadedFile = File(file.local.path)
+              val localFile = fileData.path?.let {path ->
+                Fs.getAbsPath(path)?.let {File(it)}
+              }
+              if(localFile != null && !localFile.exists() && downloadedFile.exists()) {
+                if(pathParts.size == 1 && pathParts[0] != "") {
                   try {
                     Fs.move(downloadedFile, localFile)
                   } catch(e: IOException) {
                     println("DownloadingHandler IOException $e")
                   }
+                } else if(pathParts.size > 1 && Fs.syncDirAbsPath != null) {
+                  val relativePath = TextUtils.join(
+                    "/", pathParts.copyOfRange(0, pathParts.size - 1)
+                  )
+                  val pathDirectory: File =
+                    java.io.File(Fs.syncDirAbsPath + "/" + relativePath)
+                  var directoryExist: Boolean
+                  if(pathDirectory.exists()) {
+                    directoryExist = true
+                    if(!pathDirectory.isDirectory) {
+                      directoryExist = false
+                    }
+                  } else {
+                    directoryExist = pathDirectory.mkdirs()
+                  }
+                  if(directoryExist) {
+                    try {
+                      Fs.move(downloadedFile, localFile)
+                    } catch(e: IOException) {
+                      println("DownloadingHandler IOException $e")
+                    }
+                  }
                 }
               }
-            }
-            if(localFile != null && localFile.exists()) {
-              fileData.downloaded = true
-              fileData.lastModified = localFile.lastModified()
-              fileData.inProgress = false
-              fileHelper?.updateFile(fileData)
-            }
-          }
+              if(localFile != null && localFile.exists()) {
+                fileData.downloaded = true
+                fileData.lastModified = localFile.lastModified()
+                fileData.inProgress = false
+                FileHelper.updateFile(fileData)
+              }
         }
       }
-      Sync.dataTransferInProgress = 0
-      Sync.nextDataTransfer()
+      Data.dataTransferInProgress = 0
+      FileUpdates.nextDataTransfer()
     }
     //        downloadNextFile();
   }
 
   fun uploadingUpdate(file: TdApi.File?) {
     if(file?.remote != null && file.remote.isUploadingActive && !file.remote.isUploadingCompleted) {
-      Sync.dataTransferInProgress = Date().time
+      Data.dataTransferInProgress = Date().time
       Sync.updateProgressStatus()
-      System.out.println("uploadingUpdate Sync.dataTransferInProgress " + Sync.dataTransferInProgress)
     }
   }
 
   fun uploadNextFile() {
-    for(ste in Thread.currentThread().stackTrace) {
-      Log.d(null, ste.toString())
-    }
+//    for(ste in Thread.currentThread().stackTrace) {
+//      Log.d("Tg", ste.toString())
+//    }
     Sync.updateDataTransferProgressStatus()
-    Log.d(null, "dataTransferInProgress ${Sync.dataTransferInProgress}")
-    val settings: Settings? = settingsHelper?.settings
-    val fileHelper: FileHelper? = fileHelper
-    if(Sync.dataTransferInProgress == 0L && fileHelper != null && settings != null && settings.chatId != 0L) {
-      val nextFileData: FileData? = fileHelper.nextFile
+    Log.d(null, "dataTransferInProgress ${Data.dataTransferInProgress}")
+    if(Data.dataTransferInProgress == 0L && Settings.chatId != 0L) {
+      val nextFileData: FileData? = FileHelper.nextFile
       if(nextFileData != null) {
-        Sync.dataTransferInProgress = Date().time
+        Data.dataTransferInProgress = Date().time
         Sync.updateProgressStatus()
         nextFileData.inProgress = true
-        fileHelper.updateFile(nextFileData)
-        if(settings.uploadAsMedia) {
+        FileHelper.updateFile(nextFileData)
+        if(Settings.uploadAsMedia) {
           val mimeType: String? = nextFileData.mimeType
           if(mimeType != null) {
-            if(mimeType.matches(".*video.*".toRegex())) {
+            if(mimeType.matches(".*video.*".toRegex(RegexOption.DOT_MATCHES_ALL))) {
               sendVideo(nextFileData)
-            } else if(mimeType.matches(".*audio.*".toRegex())) {
+            } else if(mimeType.matches(".*audio.*".toRegex(RegexOption.DOT_MATCHES_ALL))) {
               sendAudio(nextFileData)
-            } else if(mimeType.matches(".*image.*".toRegex())) {
-              if(mimeType.matches("(?i)image/gif".toRegex()) || mimeType.matches("(?i)image/webp".toRegex())) {
+            } else if(mimeType.matches(".*image.*".toRegex(RegexOption.DOT_MATCHES_ALL))) {
+              if(
+                mimeType.matches("(?i)image/gif".toRegex(RegexOption.DOT_MATCHES_ALL))
+                || mimeType.matches("(?i)image/webp".toRegex(RegexOption.DOT_MATCHES_ALL))
+              ) {
                 sendDocument(nextFileData)
               } else {
                 sendPhoto(nextFileData)
@@ -329,41 +331,75 @@ class Tg private constructor() {
     }
   }
 
+  fun uploadFile(file: FileData) {
+    val chatId = Settings.chatId
+    if(Data.dataTransferInProgress == 0L && chatId != 0L) {
+      Data.dataTransferInProgress = Date().time
+      if(Settings.uploadAsMedia) {
+        val mimeType: String? = file.mimeType
+        if(mimeType != null) {
+          if(mimeType.matches(".*video.*".toRegex(RegexOption.DOT_MATCHES_ALL))) {
+            sendVideo(file)
+          } else if(mimeType.matches(".*audio.*".toRegex(RegexOption.DOT_MATCHES_ALL))) {
+            sendAudio(file)
+          } else if(mimeType.matches(".*image.*".toRegex(RegexOption.DOT_MATCHES_ALL))) {
+            if(
+              mimeType.matches("(?i)image/gif".toRegex())
+              || mimeType.matches("(?i)image/webp".toRegex())
+            ) {
+              sendDocument(file)
+            } else {
+              sendPhoto(file)
+            }
+          } else {
+            sendDocument(file)
+          }
+        }
+      } else {
+        sendDocument(file)
+      }
+    }
+  }
+
+  private fun getCaption(path: String): String {
+    val before: String = ""
+    val after: String = ""
+    return before + path + after
+  }
+
   private fun sendDocument(fileData: FileData) {
     //📂📂 "\uD83D\uDCC2/"
     val relativePath: String? = fileData.path
-    val absPath: String? = relativePath?.let { Fs.getFileAbsPath(it) }
-    val settings: Settings? = settingsHelper?.settings
-    val f = absPath?.let { java.io.File(it) }
-    if(settings !== null) {
-      if(f != null && f.exists() && f.isFile && f.length() > 0) {
+    val absPath: String? = relativePath?.let { Fs.getAbsPath(it) }
+    val file = absPath?.let { File(it) }
+    if(Settings.chatId != 0L) {
+      if(file != null && file.exists() && file.isFile && file.length() > 0) {
         val document: TdApi.InputMessageContent = TdApi.InputMessageDocument(
           TdApi.InputFileLocal(absPath), null,
-          TdApi.FormattedText("\uD83D\uDDC0/$relativePath", null)
+          TdApi.FormattedText(getCaption(relativePath), null)
         )
         if(fileData.messageId == 0L) {
-          client?.send(TdApi.SendMessage(settings.chatId, 0, null, null, document), updateHandler)
+          client?.send(TdApi.SendMessage(Settings.chatId, 0, null, null, document), updateHandler)
         } else {
           client?.send(
             TdApi.EditMessageMedia(
-              settings.chatId, fileData.messageId, null, document
+              Settings.chatId, fileData.messageId, null, document
             ), updateHandler
           )
         }
       } else {
-        fileHelper?.delete(fileData)
-        Sync.dataTransferInProgress = 0
-        Sync.nextDataTransfer()
+        FileHelper.delete(fileData)
+        Data.dataTransferInProgress = 0
+        FileUpdates.nextDataTransfer()
       }
     }
   }
 
   private fun sendVideo(fileData: FileData) {
     val relativePath: String? = fileData.path
-    val absPath: String? = relativePath?.let { Fs.getFileAbsPath(it) }
-    val settings: Settings? = settingsHelper?.settings
+    val absPath: String? = relativePath?.let { Fs.getAbsPath(it) }
     val f = absPath?.let { java.io.File(it) }
-    if(settings !== null) {
+    if(Settings.chatId != 0L) {
       if(f != null && f.exists() && f.isFile && f.length() > 0) {
         val video: TdApi.InputMessageContent = TdApi.InputMessageVideo(
           TdApi.InputFileLocal(absPath),
@@ -373,204 +409,187 @@ class Tg private constructor() {
           0,
           0,
           true,
-          TdApi.FormattedText("\uD83D\uDDC0/$relativePath", null),
+          TdApi.FormattedText(getCaption(relativePath), null),
           0
         )
         if(fileData.messageId == 0L) {
-          client?.send(TdApi.SendMessage(settings.chatId, 0, null, null, video), updateHandler)
+          client?.send(TdApi.SendMessage(Settings.chatId, 0, null, null, video), updateHandler)
         } else {
           client?.send(
-            TdApi.EditMessageMedia(settings.chatId, fileData.messageId, null, video),
+            TdApi.EditMessageMedia(Settings.chatId, fileData.messageId, null, video),
             updateHandler
           )
         }
       } else {
-        fileHelper?.delete(fileData)
-        Sync.dataTransferInProgress = 0
-        Sync.nextDataTransfer()
+        FileHelper.delete(fileData)
+        Data.dataTransferInProgress = 0
+        FileUpdates.nextDataTransfer()
       }
     }
   }
 
   private fun sendAudio(fileData: FileData) {
     val relativePath: String? = fileData.path
-    val absPath: String? = relativePath?.let { Fs.getFileAbsPath(it) }
-    val settings: Settings? = settingsHelper?.settings
+    val absPath: String? = relativePath?.let { Fs.getAbsPath(it) }
     val f = absPath?.let { java.io.File(it) }
-    if(settings !== null) {
+    if(Settings.chatId != 0L) {
       if(f != null && f.exists() && f.isFile && f.length() > 0) {
         val audio: TdApi.InputMessageContent = TdApi.InputMessageAudio(
           TdApi.InputFileLocal(absPath),
           null,
           0,
           null,
-          null, TdApi.FormattedText("\uD83D\uDDC0/$relativePath", null)
+          null, TdApi.FormattedText(getCaption(relativePath), null)
         )
         if(fileData.messageId == 0L) {
-          client?.send(TdApi.SendMessage(settings.chatId, 0, null, null, audio), updateHandler)
+          client?.send(
+            TdApi.SendMessage(Settings.chatId, 0, null, null, audio),
+            updateHandler
+          )
         } else {
           client?.send(
-            TdApi.EditMessageMedia(settings.chatId, fileData.messageId, null, audio),
+            TdApi.EditMessageMedia(Settings.chatId, fileData.messageId, null, audio),
             updateHandler
           )
         }
       } else {
-        fileHelper?.delete(fileData)
-        Sync.dataTransferInProgress = 0
-        Sync.nextDataTransfer()
+        FileHelper.delete(fileData)
+        Data.dataTransferInProgress = 0
+        FileUpdates.nextDataTransfer()
       }
     }
   }
 
   private fun sendPhoto(fileData: FileData) {
     val relativePath: String? = fileData.path
-    val absPath: String? = relativePath?.let { Fs.getFileAbsPath(it) }
-    val settings: Settings? = settingsHelper?.settings
+    val absPath: String? = relativePath?.let { Fs.getAbsPath(it) }
     val f = absPath?.let { java.io.File(it) }
-    if(settings !== null){
+    if(Settings.chatId != 0L){
       if(f != null && f.exists() && f.isFile && f.length() > 0) {
         val photo: TdApi.InputMessageContent = TdApi.InputMessagePhoto(
-          TdApi.InputFileLocal(absPath), null, null, 0, 0, TdApi.FormattedText("\uD83D\uDDC0/$relativePath", null), 0
+          TdApi.InputFileLocal(absPath), null, null, 0, 0, TdApi.FormattedText(getCaption(relativePath), null), 0
         )
         if(fileData.messageId == 0L) {
-          client!!.send(TdApi.SendMessage(settings.chatId, 0, null, null, photo), updateHandler)
+          client?.send(TdApi.SendMessage(Settings.chatId, 0, null, null, photo), updateHandler)
         } else {
-          client!!.send(
-            TdApi.EditMessageMedia(settings.chatId, fileData.messageId, null, photo),
+          client?.send(
+            TdApi.EditMessageMedia(Settings.chatId, fileData.messageId, null, photo),
             updateHandler
           )
         }
       } else {
-        fileHelper?.delete(fileData)
-        Sync.dataTransferInProgress = 0
-        Sync.nextDataTransfer()
+        FileHelper.delete(fileData)
+        Data.dataTransferInProgress = 0
+        FileUpdates.nextDataTransfer()
       }
     }
   }
 
-//  private fun setChatOrder(chat: TdApi.Chat?, order: Long) {
-//    synchronized(mainChatList) {
-//      synchronized(chat!!) {
-//        if(chat.chatList == null || chat.chatList!!.constructor != TdApi.ChatListMain.CONSTRUCTOR) {
-//          return
-//        }
-//        if(chat.order != 0L) {
-//          val isRemoved = mainChatList.remove(OrderedChat(chat.order, chat.id))
-//          assert(isRemoved)
-//        }
-//        chat.order = order
-//        if(chat.order != 0L) {
-//          val isAdded = mainChatList.add(OrderedChat(chat.order, chat.id))
-//          assert(isAdded)
-//        }
-//      }
-//    }
-//  }
+  private fun setChatOrder(chat: TdApi.Chat?, order: Long) {
+    chat?.also {
+      synchronized(mainChatList) {
+        synchronized(it) {
+          val chatList = it.chatList
+          if(chatList == null || chatList.constructor != TdApi.ChatListMain.CONSTRUCTOR) {
+            return
+          }
+          if(it.order != 0L) {
+            val isRemoved = mainChatList.remove(OrderedChat(it.order, it.id))
+            assert(isRemoved)
+          }
+          it.order = order
+          if(it.order != 0L) {
+            val isAdded = mainChatList.add(OrderedChat(it.order, it.id))
+            assert(isAdded)
+          }
+        }
+      }
+    }
+  }
 
-//  private fun setMainChatList(limit: Int) {
-//    mLimit = limit
-//    synchronized(mainChatList) {
-//      if(!haveFullMainChatList && limit > mainChatList.size) {
-//        // have enough chats in the chat list or chat list is too small
-//        var offsetOrder = Long.MAX_VALUE
-//        var offsetChatId: Long = 0
-//        if(!mainChatList.isEmpty()) {
-//          val last = mainChatList.last()
-//          offsetOrder = last.order
-//          offsetChatId = last.chatId
-//        }
-//        //                Tg.UpdatesHandler handler = new Tg.UpdatesHandler();
-//        //                handler.handlerId = 5;
-//        //                client.send(new TdApi.GetChats(new TdApi.ChatListMain(), offsetOrder, offsetChatId, limit - mainChatList.size()), handler);
-//        client!!.send(
-//          TdApi.GetChats(
-//            TdApi.ChatListMain(), offsetOrder, offsetChatId, limit - mainChatList.size
-//          )
-//        ) { `object` ->
-//          when(`object`.constructor) {
-//            TdApi.Error.CONSTRUCTOR -> {
-//            }
-//            TdApi.Chats.CONSTRUCTOR -> {
-//              val chatIds = (`object` as TdApi.Chats).chatIds
-//              Log.d("chat array", Arrays.toString(chatIds))
-//              if(chatIds.size == 0) {
-//                synchronized(
-//                  mainChatList
-//                ) { haveFullMainChatList = true }
-//              } else {
-//                // chats had already been received through updates, let's retry request
-//                setMainChatList(limit)
-//              }
-//            }
-//            else -> System.err.println("Receive wrong response from TDLib:$newLine$`object`")
-//          }
-//        }
-//      }
-//      val iterator: Iterator<OrderedChat> = mainChatList.iterator()
-//      println()
-//      println("First " + mLimit + " chat(s) out of " + mainChatList.size + " known chat(s):")
-//      for(i in mainChatList.indices) {
-//        val chatId = iterator.next().chatId
-//        val chat = chats[chatId]
-//        synchronized(chat!!) {
-//          //                    System.out.println(chatId + ": " + chat.title);
-//          Log.d("ID $chatId", chat.toString())
-//        }
-//      }
-//      for(i in mainChatList.indices) {
-//        val chatId = iterator.next().chatId
-//        Log.d("ID", java.lang.Long.toString(chatId))
-//      }
-//    }
-//  }
+  private fun setMainChatList(limit: Int) {
+    synchronized(mainChatList) {
+      if(!haveFullMainChatList && limit > mainChatList.size) {
+        var offsetOrder = Long.MAX_VALUE
+        var offsetChatId: Long = 0
+        if(mainChatList.isNotEmpty()) {
+          val last = mainChatList.last()
+          offsetOrder = last.order
+          offsetChatId = last.chatId
+        }
+        client?.send(
+          TdApi.GetChats(TdApi.ChatListMain(), offsetOrder, offsetChatId, limit - mainChatList.size), ResultHandler {
+            when(it.constructor) {
+              TdApi.Error.CONSTRUCTOR -> {}
+              TdApi.Chats.CONSTRUCTOR -> {
+                val chatIds = (it as TdApi.Chats).chatIds
+                if(chatIds.isEmpty()) {
+                  synchronized(mainChatList) {
+                    haveFullMainChatList = true
+                    Log.d("haveFullMainChatList", chatIds.toString())
+                  }
+                } else {
+                  setMainChatList(limit)
+                }
+              }
+              else -> System.err.println("Receive wrong response from TDLib:$newLine$it")
+            }
+          }
+        )
+      }
+    }
+  }
 
-//  private class OrderedChat internal constructor(val order: Long, val chatId: Long) :
-//    Comparable<OrderedChat?> {
-//    override operator fun compareTo(o: OrderedChat): Int {
-//      if(order != o.order) {
-//        return if(o.order < order) -1 else 1
-//      }
-//      return if(chatId != o.chatId) {
-//        if(o.chatId < chatId) -1 else 1
-//      } else 0
-//    }
-//
-//    override fun equals(obj: Any?): Boolean {
-//      val o = obj as OrderedChat?
-//      return order == o!!.order && chatId == o.chatId
-//    }
-//
-//  }
+  class OrderedChat(val order: Long, val chatId: Long) : Comparable<OrderedChat> {
 
-  inner class UpdateHandler : ResultHandler {
+    override fun compareTo(other: OrderedChat): Int {
+      if(order != other.order) {
+        return if(other.order < order) -1 else 1
+      }
+      return if(chatId != other.chatId) {
+        if(other.chatId < chatId) -1 else 1
+      } else 0
+    }
+
+    override fun equals(other: Any?): Boolean {
+      val o = other as OrderedChat
+      return order == o.order && chatId == o.chatId
+    }
+
+  }
+
+  class UpdateHandler : ResultHandler {
 
     override fun onResult(received: TdApi.Object) {
       if(TAG != null) {
-        Log.d(null, "UpdatesHandler $TAG $received")
+        Log.d("UpdatesHandler", "UpdatesHandler $TAG $received")
       } else {
-        Log.d(null, "UpdatesHandler $received")
+        Log.d("UpdatesHandler", "UpdatesHandler $received")
       }
+
+      Log.d("Settings.uploadMissing", Settings.uploadMissing.toString())
+
       val fileUpdate: FileUpdate
       when(received.constructor) {
-//        TdApi.Chats.CONSTRUCTOR -> {
-//          val chatIds = (received as TdApi.Chats).chatIds
-//          Log.d("chat array", Arrays.toString(chatIds))
-//          if(chatIds.size == 0) {
-//            synchronized(mainChatList) { haveFullMainChatList = true }
-//            val iter: Iterator<OrderedChat> = mainChatList.iterator()
-//            println()
-//            var i = 0
-//            while(i < mainChatList.size) {
-//              val chatId = iter.next().chatId
-//              val chat = chats[chatId]
-//              synchronized(chat!!) { Log.d("ID $chatId", chat.toString()) }
-//              i++
-//            }
-//          } else {
-//            // chats had already been received through updates, let's retry request
-//            setMainChatList(mLimit)
-//          }
-//        }
+        TdApi.Chats.CONSTRUCTOR -> {
+          val chatIds = (received as TdApi.Chats).chatIds
+          Log.d("chat array", Arrays.toString(chatIds))
+          if(chatIds.isEmpty()) {
+            synchronized(mainChatList) { haveFullMainChatList = true }
+            val iter: Iterator<OrderedChat> = mainChatList.iterator()
+            println()
+            var i = 0
+            while(i < mainChatList.size) {
+              val chatId = iter.next().chatId
+              val chat = chats[chatId]
+              synchronized(chat!!) { Log.d("ID $chatId", chat.toString()) }
+              i++
+            }
+          } else {
+            // chats had already been received through updates, let's retry request
+            setMainChatList(10)
+          }
+        }
         TdApi.UpdateAuthorizationState.CONSTRUCTOR -> {
           Log.d(null, "UpdatesHandler UpdateAuthorizationState $received")
           onAuthorizationStateUpdated((received as TdApi.UpdateAuthorizationState).authorizationState)
@@ -603,9 +622,8 @@ class Tg private constructor() {
         TdApi.UpdateSupergroup.CONSTRUCTOR -> {
           val updateSupergroup = received as TdApi.UpdateSupergroup
           superGroups[updateSupergroup.supergroup.id] = updateSupergroup.supergroup
-          settings = SettingsHelper.get()?.settings
-          if(settings != null
-            && updateSupergroup.supergroup.id == settings?.supergroupId
+          if(
+            updateSupergroup.supergroup.id == Settings.supergroupId
             && (
               updateSupergroup.supergroup.status.constructor == TdApi.ChatMemberStatusBanned.CONSTRUCTOR
               || updateSupergroup.supergroup.status.constructor == TdApi.ChatMemberStatusCreator.CONSTRUCTOR
@@ -618,31 +636,31 @@ class Tg private constructor() {
               syncStatus?.setGroupName(null)
               syncStatus?.setSyncSwitch(false)
             }
-            val chatId: Long = settings?.chatId ?: 0
+            val chatId: Long = Settings?.chatId ?: 0
             if(chatId != 0L) {
-              fileHelper?.deleteByChatId(chatId)
+              FileHelper.deleteByChatId(chatId)
             }
-            settings?.enabled = false
-            settings?.chatId = 0
-            settings?.supergroupId = 0
-            settings?.title = null
-            settings?.let { settingsHelper?.updateSettings(it) }
+            Settings.enabled = false
+            Settings.chatId = 0
+            Settings.supergroupId = 0
+            Settings.title = null
+            Settings.save()
           }
         }
         TdApi.UpdateSecretChat.CONSTRUCTOR -> {
           val updateSecretChat = received as TdApi.UpdateSecretChat
           secretChats[updateSecretChat.secretChat.id] = updateSecretChat.secretChat
         }
-//        TdApi.UpdateNewChat.CONSTRUCTOR -> {
-//          val updateNewChat = received as TdApi.UpdateNewChat
-//          val chat = updateNewChat.chat
-//          synchronized(chat) {
-//            chats[chat.id] = chat
-//            val order = chat.order
-//            chat.order = 0
-//            setChatOrder(chat, order)
-//          }
-//        }
+        TdApi.UpdateNewChat.CONSTRUCTOR -> {
+          val updateNewChat = received as TdApi.UpdateNewChat
+          val chat = updateNewChat.chat
+          synchronized(chat) {
+            chats[chat.id] = chat
+            val order = chat.order
+            chat.order = 0
+            setChatOrder(chat, order)
+          }
+        }
         TdApi.UpdateChatTitle.CONSTRUCTOR -> {
           val updateChat = received as TdApi.UpdateChatTitle
           val chat = chats[updateChat.chatId]
@@ -655,31 +673,29 @@ class Tg private constructor() {
           val chat = chats[updateChat.chatId]
           synchronized(chat!!) { chat.photo = updateChat.photo }
         }
-//        TdApi.UpdateChatChatList.CONSTRUCTOR -> {
-//          val updateChat = received as TdApi.UpdateChatChatList
-//          val chat = chats[updateChat.chatId]
-//          synchronized(
-//            mainChatList
-//          ) { // to not change Chat.chatList while mainChatList is locked
-//            synchronized(chat!!) {
-//              assert(chat.order == 0L)
-//              chat.chatList = updateChat.chatList
-//            }
-//          }
-//        }
-//        TdApi.UpdateChatLastMessage.CONSTRUCTOR -> {
-//          val updateChat = received as TdApi.UpdateChatLastMessage
-//          val chat = chats[updateChat.chatId]
-//          synchronized(chat!!) {
-//            chat.lastMessage = updateChat.lastMessage
-//            setChatOrder(chat, updateChat.order)
-//          }
-//        }
-//        TdApi.UpdateChatOrder.CONSTRUCTOR -> {
-//          val updateChat = received as UpdateChatOrder
-//          val chat = chats[updateChat.chatId]
-//          synchronized(chat!!) { setChatOrder(chat, updateChat.order) }
-//        }
+        TdApi.UpdateChatChatList.CONSTRUCTOR -> {
+          val updateChat = received as TdApi.UpdateChatChatList
+          val chat = chats[updateChat.chatId]
+          synchronized(mainChatList) { // to not change Chat.chatList while mainChatList is locked
+            synchronized(chat!!) {
+              assert(chat.order == 0L)
+              chat.chatList = updateChat.chatList
+            }
+          }
+        }
+        TdApi.UpdateChatLastMessage.CONSTRUCTOR -> {
+          val updateChat = received as TdApi.UpdateChatLastMessage
+          val chat = chats[updateChat.chatId]
+          synchronized(chat!!) {
+            chat.lastMessage = updateChat.lastMessage
+            setChatOrder(chat, updateChat.order)
+          }
+        }
+        TdApi.UpdateChatOrder.CONSTRUCTOR -> {
+          val updateChat = received as TdApi.UpdateChatOrder
+          val chat = chats[updateChat.chatId]
+          synchronized(chat!!) { setChatOrder(chat, updateChat.order) }
+        }
 //        TdApi.UpdateChatIsPinned.CONSTRUCTOR -> {
 //          val updateChat = received as UpdateChatIsPinned
 //          val chat = chats[updateChat.chatId]
@@ -738,8 +754,9 @@ class Tg private constructor() {
         }
         TdApi.UpdateChatIsMarkedAsUnread.CONSTRUCTOR -> {
           val update = received as TdApi.UpdateChatIsMarkedAsUnread
-          val chat = chats[update.chatId]
-          synchronized(chat!!) { chat.isMarkedAsUnread = update.isMarkedAsUnread }
+          chats[update.chatId]?.also {
+            synchronized(it) { it.isMarkedAsUnread = update.isMarkedAsUnread }
+          }
         }
 //        TdApi.UpdateChatIsSponsored.CONSTRUCTOR -> {
 //          val updateChat = received as TdApi.UpdateChatIsSponsored
@@ -763,53 +780,97 @@ class Tg private constructor() {
           superGroupFullInfo[updateSupergroupFullInfo.supergroupId] =
             updateSupergroupFullInfo.supergroupFullInfo
         }
-        TdApi.UpdateMessageSendSucceeded.CONSTRUCTOR -> {
-          fileUpdate = FileUpdate(received as TdApi.UpdateMessageSendSucceeded)
-          if(fileUpdate.isUploadingCompleted) {
-            fileUpdate.addFile()
-            Sync.dataTransferInProgress = 0
-            Sync.nextDataTransfer()
+
+        TdApi.UpdateMessageSendSucceeded.CONSTRUCTOR -> {//TODO
+          (received as TdApi.UpdateMessageSendSucceeded).also {
+            FileUpdates.uploadingUpdate(Message(it).fileData)
           }
+          val debug = null
         }
+
+        TdApi.UpdateMessageSendFailed.CONSTRUCTOR -> {
+          Data.dataTransferInProgress = 0
+          FileUpdates.nextDataTransfer(false)
+          val debug = null
+        }
+
         TdApi.UpdateMessageContent.CONSTRUCTOR -> {
-          fileUpdate = FileUpdate(received as TdApi.UpdateMessageContent)
-          if(fileUpdate.isUploadingCompleted) {
-            fileUpdate.addFile()
-            Sync.dataTransferInProgress = 0
-            Sync.nextDataTransfer()
+//          fileUpdate = FileUpdate(received as TdApi.UpdateMessageContent)
+//          if(fileUpdate.isUploadingCompleted) {
+//            fileUpdate.addFile()
+//            Data.dataTransferInProgress = 0
+//            FileUpdates.current = null
+//            FileUpdates.nextDataTransfer()
+//          }
+          val debug = null
+        }
+        TdApi.UpdateNewMessage.CONSTRUCTOR -> {
+          (received as TdApi.UpdateNewMessage).also {
+            val file = Message(it.message).fileData
+//            if(file.upload) FileUpdates.uploadingUpdate(file)
+//            else FileUpdates.newMessageHandler(file)
+//            if(!file.upload) FileUpdates.newMessageHandler(file)
           }
+          val debug = null
         }
         TdApi.Message.CONSTRUCTOR -> {
-          fileUpdate = FileUpdate(received as TdApi.Message)
-          if(fileUpdate.isUploadingCompleted) {
-            fileUpdate.addFile()
-            Sync.dataTransferInProgress = 0
-            Sync.nextDataTransfer()
+          (received as TdApi.Message).also {
+            val file = Message(it).fileData
+//            if(file.upload) FileUpdates.uploadingUpdate(file)
+//            else FileUpdates.newMessageHandler(file)
+//            if(!file.upload) FileUpdates.newMessageHandler(file)
           }
-        }
-        TdApi.File.CONSTRUCTOR -> {
-          val file = received as TdApi.File
-          file.let {
-            synchronized(downloadingLock) { downloadingUpdate(it) }
-            uploadingUpdate(it)
-          }
-        }
-        TdApi.UpdateFile.CONSTRUCTOR -> {
-          val updateFile = received as TdApi.UpdateFile
-          if(updateFile.file != null) {
-            synchronized(downloadingLock) { downloadingUpdate(updateFile.file) }
-            uploadingUpdate(updateFile.file)
-          }
+          val debug = null
         }
         TdApi.Messages.CONSTRUCTOR -> {
-          val messages: Messages = Messages.get()
-          messages.messageUpdate(received as TdApi.Messages)
+          Messages.messageUpdate(received as TdApi.Messages)
         }
         TdApi.UpdateDeleteMessages.CONSTRUCTOR -> {
-          println("UpdateDeleteMessages")
-          Sync.start() //TODO
+          (received as TdApi.UpdateDeleteMessages)
+            .also { Data.deleteMessages(it) }
+          // Sync.start() //TODO
         }
-        else -> println("UpdatesHandler unsupported update:$newLine$received")
+        TdApi.File.CONSTRUCTOR -> {
+          synchronized(Data){
+            FileUpdates.downloadingUpdate(received as TdApi.File)
+          }
+//          Data.lock.withLock {
+//            FileUpdates.downloadingUpdate(received as TdApi.File)
+//          }
+//          downloadingUpdate(received as TdApi.File)
+//          uploadingUpdate(received)
+////          val file = received as TdApi.File
+////          file.let {
+////            synchronized(downloadingLock) { downloadingUpdate(it) }
+////            uploadingUpdate(it)
+////          }
+          val debug = null
+        }
+        TdApi.UpdateFile.CONSTRUCTOR -> {
+          synchronized(Data){
+            (received as TdApi.UpdateFile).file?.also { FileUpdates.downloadingUpdate(it) }
+          }
+//          Data.lock.withLock {
+//            (received as TdApi.UpdateFile).file?.also { FileUpdates.downloadingUpdate(it) }
+//          }
+//          FileUpdates.downloadingUpdate((received as TdApi.UpdateFile).file)
+//          val updateFile = received as TdApi.UpdateFile
+//          updateFile.file?.also {
+//            downloadingUpdate(it)
+//            uploadingUpdate(it)
+//          }
+////          if(updateFile.file != null) {
+////            synchronized(downloadingLock) { downloadingUpdate(updateFile.file) }
+////            uploadingUpdate(updateFile.file)
+////          }
+          val debug = null
+        }
+        else -> {
+//          FileUpdates.nextDataTransfer(false)
+//          if(!Updates.updated) Updates.messageIterator?.also { Updates.updateMessagePath(true) }
+          println("UpdatesHandler unsupported update:$newLine$received")
+          val debug = null
+        }
       }
 
       if(waitingCreatedChat) {
@@ -831,27 +892,19 @@ class Tg private constructor() {
                 && status.isMember
                 && enteredGroupName != null
                 && enteredGroupName == chat.title
-                && settingsHelper != null
               ) {
-                settings = settingsHelper?.settings.let {
-                  val tmp = it ?: Settings()
-                  if(
-                    tmp.chatId != 0L
-                    && tmp.supergroupId != 0
-                    && tmp.chatId != chat.id
-                    && tmp.supergroupId != supergroup.id
-                  ) {
-                    fileHelper?.deleteByChatId(tmp.chatId)
-                  }
-                  tmp.supergroupId = supergroup.id
-                  tmp.chatId = chat.id
-                  tmp.title = chat.title
-                  tmp.lastUpdate = supergroup.date.toLong()
-                  tmp.isChannel = type.isChannel
-                  tmp
-                }
+                if(
+                  Settings.chatId != 0L
+                  && Settings.supergroupId != 0
+                  && Settings.chatId != chat.id
+                  && Settings.supergroupId != supergroup.id
+                ) FileHelper.deleteByChatId(Settings.chatId)
 
-                settings?.let { settingsHelper?.updateSettings(it) }
+                Settings.supergroupId = supergroup.id
+                Settings.chatId = chat.id
+                Settings.title = chat.title
+                Settings.isChannel = type.isChannel
+                Settings.save()
 
                 syncStatus?.setGroupName(enteredGroupName)
                 enteredGroupName = null
@@ -869,19 +922,21 @@ class Tg private constructor() {
     get() {
       val groups: MutableList<Group> = ArrayList<Group>()
       for(chat in chats.values) {
-        for(supergroup in superGroups.values) {
+        Log.d("chat", chat.title)
+        for(superGroup in superGroups.values) {
           if(
             chat.type.constructor == TdApi.ChatTypeSupergroup.CONSTRUCTOR
-            && supergroup.status.constructor == TdApi.ChatMemberStatusCreator.CONSTRUCTOR
+            && superGroup.status.constructor == TdApi.ChatMemberStatusCreator.CONSTRUCTOR
           ) {
             val type = chat.type as TdApi.ChatTypeSupergroup
-            val status = supergroup.status as TdApi.ChatMemberStatusCreator
-            if(type.supergroupId == supergroup.id && status.isMember) {
+            val status = superGroup.status as TdApi.ChatMemberStatusCreator
+            if(type.supergroupId == superGroup.id && status.isMember) {
               val g = Group()
-              g.superGroupId = supergroup.id
+              g.superGroupId = superGroup.id
               g.chatId = chat.id
               g.title = chat.title
-              g.date = supergroup.date.toLong()
+              Log.d("group", chat.title)
+              g.date = superGroup.date.toLong()
               g.isChannel = type.isChannel
               groups.add(g)
             }
@@ -893,32 +948,22 @@ class Tg private constructor() {
 
   val mainActivity: MainActivity?
     get() {
-      return ContextHolder.getActivity()
+      return ContextHolder.activity
     }
 
-  val settingsHelper: SettingsHelper?
-    get() {
-      return SettingsHelper.get()
-    }
-
-  val fileHelper: FileHelper?
-    get() {
-      return FileHelper.get()
-    }
-
-  private inner class UpdateExceptionHandler : Client.ExceptionHandler {
+  private class UpdateExceptionHandler : Client.ExceptionHandler {
     override fun onException(e: Throwable) {
       e.printStackTrace()
     }
   }
 
-  private inner class DefaultExceptionHandler : Client.ExceptionHandler {
+  private class DefaultExceptionHandler : Client.ExceptionHandler {
     override fun onException(e: Throwable) {
       e.printStackTrace()
     }
   }
 
-  inner class AuthorizationRequestHandler : ResultHandler {
+  class AuthorizationRequestHandler : ResultHandler {
     override fun onResult(update: TdApi.Object) {
       when(update.constructor) {
         TdApi.Error.CONSTRUCTOR -> onAuthorizationStateUpdated(null) // repeat last action
@@ -926,48 +971,6 @@ class Tg private constructor() {
         else -> Log.d(null, "Unsupported AuthorizationRequestHandler default$newLine $update")
       }
     }
-  }
-
-  companion object {
-    private var instance: Tg? = null
-
-    fun get(): Tg? {
-      for(ste in Thread.currentThread().stackTrace) {
-        Log.d(null, ste.toString())
-      }
-      if(instance == null) {
-        instance = Tg()
-      }
-      return instance
-    }
-
-    var syncStatus: SettingsFragment.SyncStatus? = null
-    const val tdLibPath = Constants.tdLibPath
-    private var phoneNumber: String? = null
-    private var code: String? = null
-    private var authorizationState: TdApi.AuthorizationState? = null
-
-    @Volatile
-    var haveAuthorization = false
-    var authorizationStateWaitPhoneNumber = false
-    var isConnected = false
-    var needUpdate = false
-
-    private val newLine = System.getProperty("line.separator")
-    private val users: MutableMap<Int, TdApi.User> = mutableMapOf()
-    private val chats: MutableMap<Long, TdApi.Chat> = mutableMapOf()
-//    private val mainChatList: NavigableSet<OrderedChat> = TreeSet()
-    private val basicGroups: MutableMap<Int, TdApi.BasicGroup> = mutableMapOf()
-    private val superGroups: MutableMap<Int, TdApi.Supergroup> = mutableMapOf()
-    private val secretChats: MutableMap<Int, TdApi.SecretChat> = mutableMapOf()
-    private var haveFullMainChatList = false
-    private val usersFullInfo: MutableMap<Int, TdApi.UserFullInfo> = mutableMapOf()
-    private val basicGroupsFullInfo: MutableMap<Int, TdApi.BasicGroupFullInfo> = mutableMapOf()
-    private val superGroupFullInfo: MutableMap<Int, TdApi.SupergroupFullInfo> = mutableMapOf()
-  }
-
-  init {
-    createClient()
   }
 
 }

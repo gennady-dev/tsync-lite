@@ -5,13 +5,15 @@ package lite.telestorage.kt.database
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
 import lite.telestorage.kt.ContextHolder
-import lite.telestorage.kt.Sync
+import lite.telestorage.kt.Data
 import lite.telestorage.kt.database.DbSchema.FileTable
 import lite.telestorage.kt.database.DbSchema.FileTable.Cols
 import lite.telestorage.kt.models.FileData
+import java.util.*
+import kotlin.collections.ArrayList
 
 
-class FileHelper private constructor() {
+object FileHelper {
 
   private var db: SQLiteDatabase? = null
 
@@ -38,14 +40,20 @@ class FileHelper private constructor() {
     cursor.use {
       it.moveToFirst()
       while(!it.isAfterLast) {
-        val file: FileData = it.file
-        val path: String? = file.path
-        if(path != null) {
-          Sync.fileByPathMap[path] = file
-          if(file.messageId != 0L) {
-            Sync.pathByMsgIdMap[file.messageId] = path
-          }
-        }
+//        val file: FileData = it.file
+        Data.addDb(it.file)
+//        Sync.fileList.add(file)
+//        Data.dbFileList.add(file)
+//        val path: String? = file.path
+//        if(path != null) {
+//          Sync.fileByPathMap[path] = file
+//          Data.dbPathMap[path] = file
+//          if(file.messageId != 0L) {
+//            Sync.pathByMsgIdMap[file.messageId] = path
+//            Sync.fileByMsgIdMap[file.messageId] = file
+//            Data.dbMsgIdMap[file.messageId] = file
+//          }
+//        }
         it.moveToNext()
       }
     }
@@ -79,7 +87,7 @@ class FileHelper private constructor() {
     get() {
       var file: FileData? = null
       val cursor = queryFiles(
-        Cols.UPLOADED + " = 0" + " AND " + Cols.IN_PROGRESS + " = 0",
+        Cols.UPLOADED + " = 0 ",
         arrayOf()
       )
       cursor.use {
@@ -99,8 +107,7 @@ class FileHelper private constructor() {
            AND ${Cols.FILE_ID} <> ?
            AND ${Cols.FILE_UNIQUE_ID} IS NOT NULL
            AND ${Cols.FILE_UNIQUE_ID} <> ?
-           AND ${Cols.DOWNLOADED} = 0
-           AND ${Cols.IN_PROGRESS} = 0""",
+           AND ${Cols.DOWNLOADED} = 0""",
         arrayOf("", "")
       )
       cursor.use {
@@ -113,18 +120,21 @@ class FileHelper private constructor() {
     }
 
   fun updateFile(file: FileData) {
-    val uuid: String = file.uuid.toString()
     val values = getContentValues(file)
-    db?.update(
-      FileTable.NAME, values, Cols.UUID + " = ?", arrayOf(uuid)
-    )
+    if(file.uuid == null){
+      db?.insert(FileTable.NAME, null, values)
+    } else {
+      db?.update(
+        FileTable.NAME, values, Cols.UUID + "=?", arrayOf(file.uuid.toString())
+      )
+    }
   }
 
   fun updateFileByPath(file: FileData) {
     val path: String? = file.path
     val values = getContentValues(file)
     db?.update(
-      FileTable.NAME, values, Cols.PATH + " = ?", arrayOf(path)
+      FileTable.NAME, values, Cols.PATH + "=?", arrayOf(path)
     )
   }
 
@@ -143,8 +153,9 @@ class FileHelper private constructor() {
     for(ste in Thread.currentThread().stackTrace) {
       println(ste)
     }
-    val uuid: String = file.uuid.toString()
-    db?.delete(FileTable.NAME, Cols.UUID + " = ?", arrayOf(uuid))
+    file.uuid?.also {
+      db?.delete(FileTable.NAME, Cols.UUID + " = ? ", arrayOf(it.toString()))
+    }
   }
 
   fun deleteByChatId(chatId: Long) {
@@ -162,6 +173,20 @@ class FileHelper private constructor() {
     )
   }
 
+  fun deleteList(list: MutableList<FileData>) {
+    db?.beginTransaction()
+    try {
+      for(file in list){
+        file.uuid?.also {
+          db?.execSQL("DELETE FROM ${FileTable.NAME} WHERE ${Cols.UUID} = '${it}';");
+        }
+      }
+      db?.setTransactionSuccessful()
+    } finally {
+      db?.endTransaction()
+    }
+  }
+
   private fun queryFiles(whereClause: String?, whereArgs: Array<String>): FileCursor {
     val cursor = db?.query(
       FileTable.NAME,
@@ -175,39 +200,32 @@ class FileHelper private constructor() {
     return FileCursor(cursor)
   }
 
-  companion object {
-    private var instance: FileHelper? = null
-    fun get(): FileHelper? {
-      if(instance == null) {
-        instance = FileHelper()
-      }
-      return instance
-    }
-
     private fun getContentValues(file: FileData): ContentValues {
       val values = ContentValues()
-      values.put(Cols.UUID, file.uuid.toString())
-      values.put(Cols.FILE_ID, file.id)
-      values.put(Cols.FILE_UNIQUE_ID, file.uniqueId)
+      values.put(Cols.UUID, (file.uuid ?: UUID.randomUUID()).toString())
+      values.put(Cols.FILE_ID, file.fileId)
+      values.put(Cols.FILE_UNIQUE_ID, file.fileUniqueId)
       values.put(Cols.CHAT_ID, file.chatId)
       values.put(Cols.MESSAGE_ID, file.messageId)
       values.put(Cols.NAME, file.name)
       values.put(Cols.MIME_TYPE, file.mimeType)
       values.put(Cols.PATH, file.path)
-      values.put(Cols.FILE_URI, file.fileUri)
       values.put(Cols.UPLOADED, if(file.uploaded) 1 else 0)
       values.put(Cols.DOWNLOADED, if(file.downloaded) 1 else 0)
-      values.put(Cols.IN_PROGRESS, if(file.inProgress) 1 else 0)
       values.put(Cols.LAST_MODIFIED, file.lastModified)
+      values.put(Cols.DATE, file.date)
+      values.put(Cols.EDIT_DATE, file.editDate)
+      values.put(Cols.SIZE, file.size)
       return values
     }
-  }
 
   init {
-    if(ContextHolder.get() != null) {
+    db = ContextHolder.context?.let { BaseHelper(it).writableDatabase }
+//    if(ContextHolder.get() != null) {
       //TODO
       //mDatabase = new BaseHelper(CurrentContext.get().getContext()).getWritableDatabase(BuildConfig.DB_SECRET);
-      db = BaseHelper(ContextHolder.get()).writableDatabase
-    }
+//      db = BaseHelper(ContextHolder.get()).writableDatabase
+//    }
   }
+
 }

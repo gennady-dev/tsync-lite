@@ -12,6 +12,7 @@
     <string name="code_number_hint">only digits</string>
     <string name="message_ok">You are successfully logged in</string>
     <string name="text_select_group">Select a group for storing files</string>
+    <string name="text_select_group_not_found">It seems like you don\'t have own groups or channels</string>
     <string name="text_channel_created">Channel was successfully created</string>
     <string name="text_channel_updated">Channel was updated</string>
 

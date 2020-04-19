@@ -3,13 +3,11 @@ package lite.telestorage.kt
 
 import android.content.Context
 import android.util.Log
+import lite.telestorage.kt.Constants.FOLDER_ICON
 import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.kt.database.SettingsHelper
 import lite.telestorage.kt.models.FileData
-import lite.telestorage.kt.models.Settings
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
-import java.util.Date
 
 
 class FileUpdate internal constructor() {
@@ -24,32 +22,66 @@ class FileUpdate internal constructor() {
   val ANIMATION = "animation"
   val STICKER = "sticker"
   val TAG = "Message instance"
-  var mType: String? = null
+  var fileType: String? = null
   var messageId: Long = 0
   var chatId: Long = 0
-  var mCurrentChatId: Long = 0
+  var currentChatId: Long = 0
   var message: TdApi.Message? = null
-  var mContent: TdApi.MessageContent? = null
+  var messageContent: TdApi.MessageContent? = null
   var mDocument: TdApi.MessageDocument? = null
   var mVideo: TdApi.MessageVideo? = null
   var mAudio: TdApi.MessageAudio? = null
   var mPhoto: TdApi.MessagePhoto? = null
   var mAnimation: TdApi.MessageAnimation? = null
 
-  private val settingsHelper: SettingsHelper?
-    get() {
-      return SettingsHelper.get()
-    }
 
-  private val tg: Tg?
-    get() {
-      return Tg.get()
-    }
+  var fileId: Int = 0
+  var filePath: String? = null
+  var local: TdApi.LocalFile? = null
+  var downloaded = false
+  var localPath: String? = null
+  var remote: TdApi.RemoteFile? = null
+  var fileUniqueId: String? = null
+  var uploaded = false
+  var upload = false
+  var download = false
+  var size: Int = 0
 
-  private val fileHelper: FileHelper?
-    get() {
-      return FileHelper.get()
+
+  internal constructor(updateFile: TdApi.File) : this() {
+    local = updateFile.local
+    remote = updateFile.remote
+    fileId = updateFile.id
+    size = updateFile.size
+    remote?.let {
+      uploaded = !it.isUploadingActive && it.isUploadingCompleted
+      fileUniqueId = if(!it.uniqueId.isNullOrBlank()) it.uniqueId else null
     }
+    local?.let {
+      downloaded = !it.isDownloadingActive && it.isDownloadingCompleted
+      localPath = if(!it.path.isNullOrBlank()) it.path else null
+    }
+    localPath?.also {
+      if(it.matches("${Constants.tdLibPath}.+".toRegex(RegexOption.DOT_MATCHES_ALL))){
+        download = true
+      } else if(it.matches("${Fs.syncDirAbsPath}.+".toRegex(RegexOption.DOT_MATCHES_ALL))){
+        upload = true
+        filePath = it.replace("${Fs.syncDirAbsPath}/", "")
+      }
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
 
   internal constructor(updateFile: TdApi.UpdateFile?) : this() {}
 
@@ -57,27 +89,19 @@ class FileUpdate internal constructor() {
     mContext = context
   }
 
-  fun setFileData(file: FileData?) {
-    fileData = file
-  }
-
   internal constructor(fileUpdate: TdApi.UpdateMessageSendSucceeded) : this() {
-    if(
-      settingsHelper?.settings != null
-      && fileHelper != null
-      && fileUpdate.message != null
-      && fileUpdate.message.id != 0L
-      && fileUpdate.message.chatId != 0L
-    ) {
-      message = fileUpdate.message
-      chatId = fileUpdate.message.chatId
-      messageId = fileUpdate.message.id
-      setUploadedFileData(message)
+    fileUpdate.message?.also {
+      if(it.id != 0L && it.chatId != 0L){
+        message = it
+        messageId = it.id
+        chatId = it.chatId
+        setUploadedFileData(it)
+      }
     }
   }
 
-  fun setUploadedFileData(msg: TdApi.Message?) {
-    if(msg != null && msg.content != null) {
+  private fun setUploadedFileData(msg: TdApi.Message) {
+    if(msg.content != null) {
       when(msg.content.constructor) {
         TdApi.MessageDocument.CONSTRUCTOR -> setUploadedDocumentFileData()
         TdApi.MessageVideo.CONSTRUCTOR -> setUploadedVideoFileData()
@@ -87,184 +111,150 @@ class FileUpdate internal constructor() {
         TdApi.MessageSticker.CONSTRUCTOR -> setUploadedStickerFileData()
         else -> Log.d(TAG, "Receive an unknown message type")
       }
-      if(fileData != null) {
-        if(fileData.messageId == 0L && messageId != 0L) {
-          fileData.messageId = messageId
+      fileData?.also {
+        it.messageId = messageId
+        it.chatId = chatId
+      }
+    }
+  }
+
+  private fun setUploadedDocumentFileData() {
+    fileType = DOCUMENT
+    val content = message?.content?.let { it as TdApi.MessageDocument }
+    content?.document?.document?.let { setFileFileData(it) }
+    content?.document?.let { file ->
+      fileData?.let {
+        if(it.name == null && file.fileName != null && file.fileName.isNotBlank()) {
+          it.name = file.fileName
         }
-        if(fileData.chatId == 0L && chatId != 0L) {
-          fileData.chatId = chatId
+        if(it.mimeType == null && file.mimeType != null && file.mimeType.isNotBlank()) {
+          it.mimeType = file.mimeType
         }
       }
     }
   }
 
-  fun setUploadedDocumentFileData() {
-    mType = DOCUMENT
-    val content = message!!.content as TdApi.MessageDocument
-    if(content != null && content.document != null) {
-      if(content.document.document != null) {
-        setFileFileData(content.document.document)
-      }
-      if(fileData != null) {
-        if(fileData.name == null && content.document.fileName != null && content.document.fileName.trim { it <= ' ' } != "") {
-          fileData.setName(content.document.fileName)
+  private fun setUploadedVideoFileData() {
+    fileType = VIDEO
+    val content = message?.content?.let { it as TdApi.MessageVideo }
+    content?.video?.video?.let { setFileFileData(it) }
+    content?.video?.let { file ->
+      fileData?.let {
+        if(it.name == null && file.fileName != null && file.fileName.isNotBlank()) {
+          it.name = file.fileName
         }
-        if(fileData.mimeType == null && content.document.mimeType != null && content.document.mimeType.trim { it <= ' ' } != "") {
-          fileData.setMimeType(content.document.mimeType)
+        if(it.mimeType == null && file.mimeType != null && file.mimeType.isNotBlank()) {
+          it.mimeType = file.mimeType
         }
       }
     }
   }
 
-  fun setUploadedVideoFileData() {
-    mType = VIDEO
-    val content = message!!.content as TdApi.MessageVideo
-    if(content != null && content.video != null) {
-      if(content.video.video != null) {
-        setFileFileData(content.video.video)
-      }
-      if(fileData != null) {
-        if(fileData.name == null && content.video.fileName != null && content.video.fileName.trim { it <= ' ' } != "") {
-          fileData.setName(content.video.fileName)
+  private fun setUploadedAudioFileData() {
+    fileType = AUDIO
+    val content = message?.content?.let { it as TdApi.MessageAudio }
+    content?.audio?.audio?.let { setFileFileData(it) }
+    content?.audio?.let { file ->
+      fileData?.let {
+        if(it.name == null && file.fileName != null && file.fileName.isNotBlank()) {
+          it.name = file.fileName
         }
-        if(fileData.mimeType == null && content.video.mimeType != null && content.video.mimeType.trim { it <= ' ' } != "") {
-          fileData.setMimeType(content.video.mimeType)
+        if(it.mimeType == null && file.mimeType != null && file.mimeType.isNotBlank()) {
+          it.mimeType = file.mimeType
         }
       }
     }
   }
 
-  fun setUploadedAudioFileData() {
-    mType = AUDIO
-    val content = message!!.content as TdApi.MessageAudio
-    if(content != null && content.audio != null) {
-      if(content.audio.audio != null) {
-        setFileFileData(content.audio.audio)
-      }
-      if(fileData != null) {
-        if(fileData.name == null && content.audio.fileName != null && content.audio.fileName.trim { it <= ' ' } != "") {
-          fileData.setName(content.audio.fileName)
+  private fun setUploadedAnimationFileData() {
+    fileType = ANIMATION
+    val content = message?.content?.let { it as TdApi.MessageAnimation }
+    content?.animation?.animation?.let { setFileFileData(it) }
+    content?.animation?.let { file ->
+      fileData?.let {
+        if(it.name == null && file.fileName != null && file.fileName.isNotBlank()) {
+          it.name = file.fileName
         }
-        if(fileData.mimeType == null && content.audio.mimeType != null && content.audio.mimeType.trim { it <= ' ' } != "") {
-          fileData.setMimeType(content.audio.mimeType)
+        if(it.mimeType == null && file.mimeType != null && file.mimeType.isNotBlank()) {
+          it.mimeType = file.mimeType
         }
       }
     }
   }
 
-  fun setUploadedAnimationFileData() {
-    mType = ANIMATION
-    val content = message!!.content as TdApi.MessageAnimation
-    if(content != null && content.animation != null) {
-      if(content.animation.animation != null) {
-        setFileFileData(content.animation.animation)
-      }
-      if(fileData != null) {
-        if(fileData.name == null && content.animation.fileName != null && content.animation.fileName.trim { it <= ' ' } != "") {
-          fileData.setName(content.animation.fileName)
-        }
-        if(fileData.mimeType == null && content.animation.mimeType != null && content.animation.mimeType.trim { it <= ' ' } != "") {
-          fileData.setMimeType(content.animation.mimeType)
-        }
-      }
-    }
-  }
-
-  fun setUploadedPhotoFileData() {
-    mType = PHOTO
-    val content = message!!.content as TdApi.MessagePhoto
-    if(content != null && content.photo != null && content.photo.sizes != null && content.photo.sizes.size > 0) {
+  private fun setUploadedPhotoFileData() {
+    fileType = PHOTO
+    val content = message?.content?.let { it as TdApi.MessagePhoto }
+    content?.photo?.sizes?.let {
       var height = 0
       var width = 0
-      for(photo in content.photo.sizes) {
-        if(photo.height > height && photo.width > width) {
+      for(photo in it) {
+        if(photo != null && photo.height > height && photo.width > width) {
           height = photo.height
           width = photo.width
           setFileFileData(photo.photo)
-          Log.d(TAG, "width $width height $height")
         }
       }
     }
   }
 
-  fun setUploadedStickerFileData() {
-    mType = STICKER
-    var content: TdApi.MessageSticker? = null
-    if(message != null && message!!.content != null) {
-      content = message!!.content as TdApi.MessageSticker
-    }
-    if(content != null && content.sticker != null) {
-      if(content.sticker.sticker != null) {
-        setFileFileData(content.sticker.sticker)
-      }
-    }
+  private fun setUploadedStickerFileData() {
+    fileType = STICKER
+    val content = message?.content?.let { it as TdApi.MessageSticker }
+    content?.sticker?.sticker?.also { setFileFileData(it) }
   }
 
-  fun setFileFileData(file: TdApi.File?) {
-    if(file != null) {
-      val syncFolder: String? = Fs.storageAbsPath
-      if(file.local != null && file.local.path != null && file.local.path.trim { it <= ' ' } != "" && syncFolder != null) {
-        val responsePath = file.local.path.replace("$syncFolder/", "")
-        fileData = fileHelper.getFileByPath(responsePath)
+  private fun setFileFileData(file: TdApi.File) {
+    val responsePath: String? = file.local?.path?.let { path ->
+      Fs.syncDirAbsPath?.let { path.replace("$it/", "") }
+    }
+    val fileData = responsePath?.let { FileHelper.getFileByPath(it) }
+    if(fileData != null) {
+      if(file.id != 0) {
+        fileData.fileId = file.id
       }
-      if(fileData != null) {
-        if(file.id != 0) {
-          fileData.setFileId(file.id)
+      file.remote?.also {
+        if(it.uniqueId != null && it.uniqueId.isNotBlank()) {
+          fileData.fileUniqueId = it.uniqueId
         }
-        if(file.remote != null) {
-          if(file.remote.uniqueId != null && file.remote.uniqueId.trim { it <= ' ' } != "") {
-            fileData.setFileUniqueId(file.remote.uniqueId)
-          }
-          if(!file.remote.isUploadingActive && file.remote.isUploadingCompleted) {
-            isUploadingCompleted = true
-            fileData.setUploaded(true)
-            fileData.setInProgress(false)
-            val localFile: java.io.File? = file
-            if(localFile != null) {
-              if(settingsHelper != null) {
-                val settings: Settings = settingsHelper.getSettings()
-                if(settings != null && settings.deleteUploaded()) {
-                  localFile.delete()
-                }
-              }
-              if(localFile.exists()) {
-                fileData.setLastModified(localFile.lastModified())
-              }
+        if(!it.isUploadingActive && it.isUploadingCompleted) {
+          isUploadingCompleted = true
+          fileData.uploaded = true
+          fileData.inProgress = false
+          getLocalFile(fileData)?.also { file ->
+            Settings.also { s -> if(s.deleteUploaded) file.delete() }
+            if(file.exists()) {
+              fileData.lastModified = file.lastModified()
             }
           }
         }
-        fileData.setUpdated(Date())
       }
     }
   }
 
   internal constructor(fileUpdate: TdApi.UpdateMessageContent?) : this() {
-    if(settingsHelper != null && settingsHelper.getSettings() != null && fileHelper != null && fileUpdate != null && fileUpdate.newContent != null && fileUpdate.messageId != 0L) {
-      mContent = fileUpdate.newContent
+    if(fileUpdate?.newContent != null && fileUpdate.messageId != 0L) {
+      messageContent = fileUpdate.newContent
       messageId = fileUpdate.messageId
       chatId = fileUpdate.chatId
-      fileData = fileHelper.getFileByMsgId(messageId)
-      if(fileData != null) {
-        setEditedFileData()
-      }
+      fileData = FileHelper.getFileByMsgId(messageId)
+      fileData?.also { setEditedFileData() }
     }
   }
 
   internal constructor(msg: TdApi.Message?) : this() {
-    if(settingsHelper != null && settingsHelper.getSettings() != null && fileHelper != null && msg != null && msg.content != null && msg.id != 0L) {
-      mContent = msg.content
+    if(msg?.content != null && msg.id != 0L) {
+      messageContent = msg.content
       messageId = msg.id
       chatId = msg.chatId
-      fileData = fileHelper.getFileByMsgId(messageId)
-      if(fileData != null) {
-        setEditedFileData()
-      }
+      fileData = FileHelper.getFileByMsgId(messageId)
+      fileData?.also { setEditedFileData() }
     }
   }
 
-  fun setEditedFileData() {
-    if(mContent != null) {
-      when(mContent!!.constructor) {
+  private fun setEditedFileData() {
+    messageContent?.also {
+      when(it.constructor) {
         TdApi.MessageDocument.CONSTRUCTOR -> setEditedDocumentFileData()
         TdApi.MessageVideo.CONSTRUCTOR -> setEditedVideoFileData()
         TdApi.MessageAudio.CONSTRUCTOR -> setEditedAudioFileData()
@@ -273,128 +263,116 @@ class FileUpdate internal constructor() {
         TdApi.MessageSticker.CONSTRUCTOR -> setEditedStickerFileData()
         else -> Log.d(TAG, "Receive an unknown message type")
       }
-      if(fileData != null) {
-        if(fileData.messageId === 0 && messageId != 0L) {
-          fileData.setMessageId(messageId)
+      fileData?.also { f ->
+        if(f.messageId == 0L && messageId != 0L) {
+          f.messageId = messageId
         }
-        if(fileData.getChatId() === 0 && chatId != 0L) {
-          fileData.setChatId(chatId)
-        }
-      }
-    }
-  }
-
-  fun setEditedDocumentFileData() {
-    mType = DOCUMENT
-    val content = mContent as TdApi.MessageDocument?
-    if(content != null && content.document != null) {
-      if(content.document.document != null) {
-        setEditedFileFileData(content.document.document)
-      }
-      if(fileData.name == null && content.document.fileName != null && content.document.fileName.trim { it <= ' ' } != "") {
-        fileData.setName(content.document.fileName)
-      }
-      if(fileData.mimeType == null && content.document.mimeType != null && content.document.mimeType.trim { it <= ' ' } != "") {
-        fileData.setMimeType(content.document.mimeType)
-      }
-    }
-  }
-
-  fun setEditedVideoFileData() {
-    mType = VIDEO
-    val content = mContent as TdApi.MessageVideo?
-    if(content != null && content.video != null) {
-      if(content.video.video != null) {
-        setEditedFileFileData(content.video.video)
-      }
-      if(fileData.name == null && content.video.fileName != null && content.video.fileName.trim { it <= ' ' } != "") {
-        fileData.setName(content.video.fileName)
-      }
-      if(fileData.mimeType == null && content.video.mimeType != null && content.video.mimeType.trim { it <= ' ' } != "") {
-        fileData.setMimeType(content.video.mimeType)
-      }
-    }
-  }
-
-  fun setEditedAudioFileData() {
-    mType = AUDIO
-    val content = mContent as TdApi.MessageAudio?
-    if(content != null && content.audio != null) {
-      if(content.audio.audio != null) {
-        setEditedFileFileData(content.audio.audio)
-      }
-      if(fileData.name == null && content.audio.fileName != null && content.audio.fileName.trim { it <= ' ' } != "") {
-        fileData.setName(content.audio.fileName)
-      }
-      if(fileData.mimeType == null && content.audio.mimeType != null && content.audio.mimeType.trim { it <= ' ' } != "") {
-        fileData.setMimeType(content.audio.mimeType)
-      }
-    }
-  }
-
-  fun setEditedAnimationFileData() {
-    mType = ANIMATION
-    val content = mContent as TdApi.MessageAnimation?
-    if(content != null && content.animation != null) {
-      if(content.animation.animation != null) {
-        setEditedFileFileData(content.animation.animation)
-      }
-      if(fileData.name == null && content.animation.fileName != null && content.animation.fileName.trim { it <= ' ' } != "") {
-        fileData.setName(content.animation.fileName)
-      }
-      if(fileData.mimeType == null && content.animation.mimeType != null && content.animation.mimeType.trim { it <= ' ' } != "") {
-        fileData.setMimeType(content.animation.mimeType)
-      }
-    }
-  }
-
-  fun setEditedPhotoFileData() {
-    mType = PHOTO
-    val content = mContent as TdApi.MessagePhoto?
-    if(content != null && content.photo != null && content.photo.sizes != null && content.photo.sizes.size > 0) {
-      var height = 0
-      var width = 0
-      for(photo in content.photo.sizes) {
-        if(photo.height > height && photo.width > width) {
-          height = photo.height
-          width = photo.width
-          setEditedFileFileData(photo.photo)
-          Log.d(TAG, "width $width height $height")
+        if(f.chatId == 0L && chatId != 0L) {
+          f.chatId = chatId
         }
       }
     }
   }
 
-  fun setEditedStickerFileData() {
-    mType = STICKER
-    val content = mContent as TdApi.MessageSticker?
-    if(content != null && content.sticker != null) {
-      if(content.sticker.sticker != null) {
-        setEditedFileFileData(content.sticker.sticker)
+  private fun setEditedDocumentFileData() {
+    fileType = DOCUMENT
+    val content = messageContent as TdApi.MessageDocument?
+    content?.document?.document?.also { setEditedFileFileData(it) }
+    content?.document?.also {
+      if(fileData?.name == null && it.fileName?.isNotBlank() == true) {
+        fileData?.name = it.fileName
+      }
+      if(fileData?.mimeType == null && it.mimeType?.isNotBlank() == true) {
+        fileData?.mimeType = it.mimeType
       }
     }
   }
 
-  fun setEditedFileFileData(file: File?) {
-    if(file != null) {
-      if(file.id != 0) {
-        fileData.setFileId(file.id)
+  private fun setEditedVideoFileData() {
+    fileType = VIDEO
+    val content = messageContent as TdApi.MessageVideo?
+    content?.video?.video?.also { setEditedFileFileData(it) }
+    content?.video?.also {
+      if(fileData?.name == null && it.fileName?.isNotBlank() == true) {
+        fileData?.name = it.fileName
       }
-      if(file.remote != null) {
-        if(file.remote.uniqueId != null && file.remote.uniqueId.trim { it <= ' ' } != "") {
-          fileData.setFileUniqueId(file.remote.uniqueId)
-        }
-        if(!file.remote.isUploadingActive && file.remote.isUploadingCompleted) {
-          isUploadingCompleted = true
-          fileData.setUploaded(true)
-          fileData.setInProgress(false)
-          val localFile: java.io.File? = file
-          if(localFile != null) {
-            fileData.setLastModified(localFile.lastModified())
+      if(fileData?.mimeType == null && it.mimeType?.isNotBlank() == true) {
+        fileData?.mimeType = it.mimeType
+      }
+    }
+  }
+
+  private fun setEditedAudioFileData() {
+    fileType = AUDIO
+    val content = messageContent as TdApi.MessageAudio?
+    content?.audio?.audio?.also { setEditedFileFileData(it) }
+    content?.audio?.also {
+      if(fileData?.name == null && it.fileName?.isNotBlank() == true) {
+        fileData?.name = it.fileName
+      }
+      if(fileData?.mimeType == null && it.mimeType?.isNotBlank() == true) {
+        fileData?.mimeType = it.mimeType
+      }
+    }
+  }
+
+  private fun setEditedAnimationFileData() {
+    fileType = ANIMATION
+    val content = messageContent as TdApi.MessageAnimation?
+    content?.animation?.animation?.also { setEditedFileFileData(it) }
+    content?.animation?.also {
+      if(fileData?.name == null && it.fileName?.isNotBlank() == true) {
+        fileData?.name = it.fileName
+      }
+      if(fileData?.mimeType == null && it.mimeType?.isNotBlank() == true) {
+        fileData?.mimeType = it.mimeType
+      }
+    }
+  }
+
+  private fun setEditedPhotoFileData() {
+    fileType = PHOTO
+    (messageContent as TdApi.MessagePhoto?)?.photo?.sizes?.let {
+        var height = 0
+        var width = 0
+        for(photo in it) {
+          if(photo != null && photo.height > height && photo.width > width) {
+            height = photo.height
+            width = photo.width
+            setEditedFileFileData(photo.photo)
           }
         }
       }
-      fileData.setUpdated(Date())
+  }
+
+  private fun setEditedStickerFileData() {
+    fileType = STICKER
+    (messageContent as TdApi.MessageSticker?)
+      ?.sticker?.sticker?.also { setEditedFileFileData(it) }
+  }
+
+  private fun setEditedFileFileData(file: TdApi.File) {
+    fileData?.also {
+      if(file.id != 0) {
+        it.fileId = file.id
+      }
+      if(file.remote != null) {
+        if(file.remote?.uniqueId?.isNotBlank() == true) {
+          it.fileUniqueId = file.remote.uniqueId
+        }
+        if(
+          file.remote?.isUploadingActive == false
+          && file.remote?.isUploadingCompleted == true
+        ) {
+          isUploadingCompleted = true
+          it.uploaded = true
+          it.inProgress = false
+          val localFile: File? = getLocalFile(it)
+          if(localFile != null) {
+            it.lastModified = localFile.lastModified()
+          }
+        }
+      }
     }
   }
 
@@ -660,14 +638,13 @@ class FileUpdate internal constructor() {
   //            }
   //        }
   //    }
+
   internal constructor(messageMap: MutableMap<Long, TdApi.Message>) : this() {
-    if(settingsHelper != null && settingsHelper.getSettings() != null && fileHelper != null && messageMap != null && Sync.fileByPathMap != null && Sync.sPathByIdMap != null && Sync.updateMap != null) {
-      mCurrentChatId = settingsHelper.getSettings().getChatId()
-      updateFileDataMap(messageMap)
-    }
+    currentChatId = Settings.chatId
+    updateFileDataMap(messageMap)
   }
 
-  fun updateFileDataMap(messageMap: Map<Long, TdApi.Message>) {
+  private fun updateFileDataMap(messageMap: Map<Long, TdApi.Message>) {
     for(msg in messageMap.values) {
       message = msg
       messageId = 0
@@ -676,40 +653,40 @@ class FileUpdate internal constructor() {
       setMapFileData()
     }
     for(data in Sync.fileByPathMap.values) {
-      val path: String? = data?.path
+      val path: String? = data.path
       if(path != null) {
-        val absPath = Fs.getFileAbsPath(path)
+        val absPath = Fs.getAbsPath(path)
         if(absPath != null) {
-          val file = java.io.File(absPath)
+          val file = File(absPath)
           if(file.exists()) {
             data.messageId = 0
-            data.id = 0
-            data.uniqueId = null
+            data.fileId = 0
+            data.fileUniqueId = null
             data.uploaded = false
           } else {
-            fileHelper?.delete(data)
-            Sync.fileByPathMap?.remove(path)
+            FileHelper.delete(data)
+            Sync.fileByPathMap.remove(path)
           }
         }
       }
     }
   }
 
-  fun setMapFileData() {
-    var path: String
-    if(message != null && message!!.id != 0L && message!!.chatId != 0L) {
-      messageId = message!!.id
-      if(mCurrentChatId != 0L && mCurrentChatId == message!!.chatId) {
-        chatId = message!!.chatId
+  private fun setMapFileData() {
+    var path: String?
+    val msg = message
+    if(msg != null && msg.id != 0L && msg.chatId != 0L) {
+      messageId = msg.id
+      if(currentChatId != 0L && currentChatId == msg.chatId) {
+        chatId = msg.chatId
       }
-      path = Sync.pathByMsgIdMap?.get(message!!.id)
+      path = Sync.pathByMsgIdMap[msg.id]
       if(path != null && Sync.fileByPathMap.containsKey(path)) {
-        fileData = Sync.fileByPathMap.get(path)
+        fileData = Sync.fileByPathMap[path]
       }
-      println("message id $messageId $path")
     }
-    if(message!!.content != null) {
-      when(message!!.content.constructor) {
+    if(msg?.content != null) {
+      when(msg.content.constructor) {
         TdApi.MessageDocument.CONSTRUCTOR -> setMapDocumentFileData()
         TdApi.MessageVideo.CONSTRUCTOR -> setMapVideoFileData()
         TdApi.MessageAudio.CONSTRUCTOR -> setMapAudioFileData()
@@ -719,33 +696,33 @@ class FileUpdate internal constructor() {
         else -> Log.d(TAG, "Receive an unknown message type")
       }
     }
-    val localFile = file
+    val fileData = fileData
+    val localFile = fileData?.let { getLocalFile(it) }
     if(fileData != null) {
-      if(fileData.messageId === 0 && messageId != 0L) {
-        fileData.setMessageId(messageId)
+      if(fileData.messageId == 0L && messageId != 0L) {
+        fileData.messageId = messageId
         putToUpdateMap()
       }
-      if(fileData.getChatId() === 0 && chatId != 0L) {
-        fileData.setChatId(chatId)
+      if(fileData.chatId == 0L && chatId != 0L) {
+        fileData.chatId = chatId
         putToUpdateMap()
       }
       if(localFile == null) {
-        if(fileData.isDownloaded() && settingsHelper.getSettings().downloadMissing()) {
-          fileData.setDownloaded(false)
+        if(fileData.downloaded && Settings.downloadMissing == true) {
+          fileData.downloaded = false
           putToUpdateMap()
         }
-        if(!fileData.isDownloaded() && !settingsHelper.getSettings().downloadMissing()) {
-          fileData.setDownloaded(true)
+        if(!fileData.downloaded && Settings.downloadMissing == false) {
+          fileData.downloaded = true
           putToUpdateMap()
         }
       } else {
-        if(localFile.lastModified() != fileData.getLastModified()) {
-          println("localFile.lastModified " + localFile.lastModified() + " mFileData.getLastModified " + fileData.getLastModified())
-          fileData.setUploaded(false)
+        if(localFile.lastModified() != fileData.lastModified) {
+          fileData.uploaded = false
           putToUpdateMap()
         }
-        if(!fileData.isDownloaded()) {
-          fileData.setDownloaded(true)
+        if(!fileData.downloaded) {
+          fileData.downloaded = true
           putToUpdateMap()
         }
       }
@@ -756,222 +733,161 @@ class FileUpdate internal constructor() {
     }
   }
 
-  fun setMapDocumentFileData() {
-    mType = DOCUMENT
-    var content: TdApi.MessageDocument? = null
-    if(message != null && message!!.content != null) {
-      content = message!!.content as TdApi.MessageDocument
+  private fun setMapDocumentFileData() {
+    fileType = DOCUMENT
+    val content = message?.content?.let { it as TdApi.MessageDocument }
+    val path: String? = content?.caption?.text?.let { getPathFromCaption(it) }
+    if(fileData == null && path != null) {
+      fileData = Sync.fileByPathMap[path]
+      putToUpdateMap()
     }
-    if(content != null) {
-      var path: String? = null
-      if(content.caption != null) {
-        path = getPathFromCaption(content.caption.text)
+    content?.document?.document?.let { setMapFileFileData(it) }
+    content?.document?.let { file ->
+      fileData?.let {
+        if(it.name == null && file.fileName != null && file.fileName.isNotBlank()) {
+          it.name = file.fileName
+        }
+        if(it.mimeType == null && file.mimeType != null && file.mimeType.isNotBlank()) {
+          it.mimeType = file.mimeType
+        }
+        if(it.path == null && path != null) {
+          it.path = path
+        }
       }
+    }
+  }
+
+  private fun setMapVideoFileData() {
+    fileType = VIDEO
+    val content = message?.content?.let { it as TdApi.MessageVideo }
+    val path: String? = content?.caption?.text?.let { getPathFromCaption(it) }
+    if(fileData == null && path != null) {
+      fileData = Sync.fileByPathMap[path]
+      putToUpdateMap()
+    }
+    content?.video?.video?.let { setMapFileFileData(it) }
+    content?.video?.let { file ->
+      fileData?.let {
+        if(it.name == null && file.fileName != null && file.fileName.isNotBlank()) {
+          it.name = file.fileName
+        }
+        if(it.mimeType == null && file.mimeType != null && file.mimeType.isNotBlank()) {
+          it.mimeType = file.mimeType
+        }
+        if(it.path == null && path != null) {
+          it.path = path
+        }
+      }
+    }
+  }
+
+  private fun setMapAudioFileData() {
+    fileType = AUDIO
+    val content = message?.content?.let { it as TdApi.MessageAudio }
+    val path: String? = content?.caption?.text?.let { getPathFromCaption(it) }
+    if(fileData == null && path != null) {
+      fileData = Sync.fileByPathMap[path]
+      putToUpdateMap()
+    }
+    content?.audio?.audio?.let { setMapFileFileData(it) }
+    content?.audio?.let { file ->
+      fileData?.let {
+        if(it.name == null && file.fileName != null && file.fileName.isNotBlank()) {
+          it.name = file.fileName
+        }
+        if(it.mimeType == null && file.mimeType != null && file.mimeType.isNotBlank()) {
+          it.mimeType = file.mimeType
+        }
+        if(it.path == null && path != null) {
+          it.path = path
+        }
+      }
+    }
+  }
+
+  private fun setMapAnimationFileData() {
+    fileType = ANIMATION
+    val content = message?.content?.let { it as TdApi.MessageAnimation }
+    val path: String? = content?.caption?.text?.let { getPathFromCaption(it) }
+    if(fileData == null && path != null) {
+      fileData = Sync.fileByPathMap[path]
+      putToUpdateMap()
+    }
+    content?.animation?.animation?.let { setMapFileFileData(it) }
+    content?.animation?.let { file ->
+      fileData?.let {
+        if(it.name == null && file.fileName != null && file.fileName.isNotBlank()) {
+          it.name = file.fileName
+        }
+        if(it.mimeType == null && file.mimeType != null && file.mimeType.isNotBlank()) {
+          it.mimeType = file.mimeType
+        }
+        if(it.path == null && path != null) {
+          it.path = path
+        }
+      }
+    }
+  }
+
+  private fun setMapPhotoFileData() {
+    fileType = PHOTO
+    val content = message?.content?.let { it as TdApi.MessagePhoto }
+    val path: String? = content?.caption?.text?.let { getPathFromCaption(it) }
       if(fileData == null && path != null) {
-        fileData = Sync.fileByPathMap.get(path)
+        fileData = Sync.fileByPathMap[path]
         putToUpdateMap()
       }
-      if(content.document != null) {
-        if(content.document.document != null) {
-          setMapFileFileData(content.document.document)
+    content?.photo?.sizes?.let {
+      var height = 0
+      var width = 0
+      for(photo in it) {
+        if(photo != null && photo.height > height && photo.width > width) {
+          height = photo.height
+          width = photo.width
+          setMapFileFileData(photo.photo)
         }
-        if(fileData != null) {
-          if(fileData.name == null && content.document.fileName != null && content.document.fileName.trim { it <= ' ' } != "") {
-            fileData.setName(content.document.fileName)
-          }
-          if(fileData.mimeType == null && content.document.mimeType != null && content.document.mimeType.trim { it <= ' ' } != "") {
-            fileData.setMimeType(content.document.mimeType)
-          }
-          if(fileData.path == null && path != null) {
-            fileData.setPath(path)
-          }
-        }
+      }
+    }
+    if(path != null) {
+      fileData?.let {
+        if(it.path == null) it.path = path
       }
     }
   }
 
-  fun setMapVideoFileData() {
-    mType = VIDEO
-    var content: TdApi.MessageVideo? = null
-    if(message != null && message!!.content != null) {
-      content = message!!.content as TdApi.MessageVideo
+  private fun setMapStickerFileData() {
+    fileType = STICKER
+    val content = message?.content?.let { it as TdApi.MessageSticker }
+    content?.sticker?.sticker?.also { setMapFileFileData(it) }
+  }
+
+  private fun setMapFileFileData(tdFile: TdApi.File) {
+    val file: FileData = fileData ?: FileData()
+    fileData = fileData ?: file
+    if(tdFile.id != 0 && tdFile.id != file.fileId) {
+      file.fileId = tdFile.id
+      putToUpdateMap()
     }
-    if(content != null) {
-      var path: String? = null
-      if(content.caption != null) {
-        path = getPathFromCaption(content.caption.text)
-      }
-      if(fileData == null && path != null) {
-        fileData = Sync.fileByPathMap.get(path)
+    tdFile.remote?.also {
+      if(it.uniqueId != null && it.uniqueId.isNotBlank() && it.uniqueId != file.fileUniqueId) {
+        file.fileUniqueId = it.uniqueId
         putToUpdateMap()
+        if(file.name == null && file.path == null && file.mimeType == null && fileType === STICKER) {
+          file.name = it.uniqueId + ".webp"
+          file.path = "webp_stickers/${it.uniqueId}.webp"
+          file.mimeType = "image/webp"
+          file.uploaded = true
+        }
       }
-      if(content.video != null) {
-        if(content.video.video != null) {
-          setMapFileFileData(content.video.video)
-        }
-        if(fileData != null) {
-          if(fileData.name == null && content.video.fileName != null && content.video.fileName.trim { it <= ' ' } != "") {
-            fileData.setName(content.video.fileName)
-          }
-          if(fileData.mimeType == null && content.video.mimeType != null && content.video.mimeType.trim { it <= ' ' } != "") {
-            fileData.setMimeType(content.video.mimeType)
-          }
-          if(fileData.path == null && path != null) {
-            fileData.setPath(path)
-          }
-        }
+      if(!it.isUploadingActive && it.isUploadingCompleted && (!file.uploaded || file.inProgress)) {
+        file.uploaded = true
+        file.inProgress = false
+        putToUpdateMap()
       }
     }
   }
 
-  fun setMapAudioFileData() {
-    mType = AUDIO
-    var content: TdApi.MessageAudio? = null
-    if(message != null && message!!.content != null) {
-      content = message!!.content as TdApi.MessageAudio
-    }
-    if(content != null) {
-      var path: String? = null
-      if(content.caption != null) {
-        path = getPathFromCaption(content.caption.text)
-      }
-      if(fileData == null && path != null) {
-        fileData = Sync.fileByPathMap.get(path)
-        putToUpdateMap()
-      }
-      if(content.audio != null) {
-        if(content.audio.audio != null) {
-          setMapFileFileData(content.audio.audio)
-        }
-        if(fileData != null) {
-          if(fileData.name == null && content.audio.fileName != null && content.audio.fileName.trim { it <= ' ' } != "") {
-            fileData.setName(content.audio.fileName)
-          }
-          if(fileData.mimeType == null && content.audio.mimeType != null && content.audio.mimeType.trim { it <= ' ' } != "") {
-            fileData.setMimeType(content.audio.mimeType)
-          }
-          if(fileData.path == null && path != null) {
-            fileData.setPath(path)
-          }
-        }
-      }
-    }
-  }
-
-  fun setMapAnimationFileData() {
-    mType = ANIMATION
-    var content: TdApi.MessageAnimation? = null
-    if(message != null && message!!.content != null) {
-      content = message!!.content as TdApi.MessageAnimation
-    }
-    if(content != null) {
-      var path: String? = null
-      if(content.caption != null) {
-        path = getPathFromCaption(content.caption.text)
-      }
-      if(fileData == null && path != null) {
-        fileData = Sync.fileByPathMap.get(path)
-        putToUpdateMap()
-      }
-      if(content.animation != null) {
-        if(content.animation.animation != null) {
-          setMapFileFileData(content.animation.animation)
-        }
-        if(fileData != null) { //TODO change downloaded mime type to video/mp4
-          if(fileData.name == null && content.animation.fileName != null && content.animation.fileName.trim { it <= ' ' } != "") {
-            fileData.setName(content.animation.fileName)
-            println("content.animation.fileName " + content.animation.fileName)
-          }
-          if(fileData.mimeType == null && content.animation.mimeType != null && content.animation.mimeType.trim { it <= ' ' } != "") {
-            fileData.setMimeType(content.animation.mimeType)
-            println("content.animation.mimeType " + content.animation.mimeType)
-          }
-          if(fileData.path == null && path != null) {
-            fileData.setPath(path)
-            println("path $path")
-          }
-        }
-      }
-    }
-  }
-
-  fun setMapPhotoFileData() {
-    mType = PHOTO
-    var content: TdApi.MessagePhoto? = null
-    if(message != null && message!!.content != null) {
-      content = message!!.content as TdApi.MessagePhoto
-    }
-    if(content != null) {
-      var path: String? = null
-      if(content.caption != null) {
-        path = getPathFromCaption(content.caption.text)
-      }
-      if(fileData == null && path != null) {
-        fileData = Sync.fileByPathMap.get(path)
-        putToUpdateMap()
-      }
-      if(content.photo != null && content.photo.sizes != null && content.photo.sizes.size > 0) {
-        var height = 0
-        var width = 0
-        for(photo in content.photo.sizes) {
-          if(photo.height > height && photo.width > width) {
-            height = photo.height
-            width = photo.width
-            setMapFileFileData(photo.photo)
-            Log.d(TAG, "width $width height $height")
-          }
-        }
-      }
-      if(fileData != null && fileData.path == null && path != null) {
-        fileData.setPath(path)
-      }
-    }
-  }
-
-  fun setMapStickerFileData() {
-    mType = STICKER
-    var content: TdApi.MessageSticker? = null
-    if(message != null && message!!.content != null) {
-      content = message!!.content as TdApi.MessageSticker
-    }
-    if(content != null && content.sticker != null) {
-      if(content.sticker.sticker != null) {
-        setMapFileFileData(content.sticker.sticker)
-      }
-    }
-  }
-
-  fun setMapFileFileData(file: TdApi.File?) {
-    if(file != null) {
-      if(fileData == null) {
-        fileData = FileData()
-        putToUpdateMap()
-      }
-      if(file.id != 0 && file.id != fileData.id) {
-        fileData.id = file.id
-        putToUpdateMap()
-      }
-      if(file.remote != null) {
-        if(file.remote.uniqueId != null && file.remote.uniqueId.trim { it <= ' ' } != "" && file.remote.uniqueId != fileData.uniqueId) {
-          fileData.uniqueId = file.remote.uniqueId
-          putToUpdateMap()
-          if(fileData.name == null && fileData.path == null && fileData.mimeType == null && mType === STICKER) {
-            fileData.name = file.remote.uniqueId + ".webp"
-            fileData.path = "webp_stickers/" + file.remote.uniqueId + ".webp"
-            fileData.mimeType = "image/webp"
-            fileData.uploaded = true
-          }
-        }
-        if(!file.remote.isUploadingActive && file.remote.isUploadingCompleted && (!fileData.uploaded || fileData.inProgress)) {
-          fileData.uploaded = true
-          fileData.inProgress = false
-          putToUpdateMap()
-        }
-      }
-    }
-  }
-
-  fun putToUpdateMap() {
+  private fun putToUpdateMap() {
 //        for (StackTraceElement ste : Thread.currentThread().getStackTrace()) {
 //            System.out.println(ste);
 //        }
@@ -1001,65 +917,41 @@ class FileUpdate internal constructor() {
     }
   }
 
-  val file: File?
-    get() {
-      var file: File? = null
-      val path = fileData?.path
-      if(path != null) {
-        val fullPath = Fs.getFileAbsPath(path)
-        if(fullPath != null) {
-          file = File(fullPath)
-          if(!file.exists()) {
-            file = null
-          }
-        }
-      }
-      return file
+  private fun getLocalFile(fileData: FileData): File? {
+    var file: File? = fileData.path?.let { relativeFilePath ->
+      Fs.getAbsPath(relativeFilePath)?.let { File(it) }
     }
+    if(file != null && !file.exists()) {
+      file = null
+    }
+    return file
+  }
 
   fun addFile() {
-    if(fileHelper != null && fileData != null) {
-      println("addFile")
-      if(fileData.messageId != 0L && fileHelper.getFileByMsgId(fileData.messageId) != null) {
-        fileHelper.updateFileByMsgId(fileData)
-        println("update file by message id")
-      } else if(fileData.path != null && fileHelper.getFileByPath(fileData.path) != null) {
-        fileHelper.updateFileByPath(fileData)
-        println("update file by path")
+    val fileData = fileData
+    val path = fileData?.path
+    if(fileData != null) {
+      if(fileData.messageId != 0L && FileHelper.getFileByMsgId(fileData.messageId) != null) {
+        FileHelper.updateFileByMsgId(fileData)
+      } else if(path != null && FileHelper.getFileByPath(path) != null) {
+        FileHelper.updateFileByPath(fileData)
       } else {
-        println("addFile 2")
-        fileHelper.addFile(fileData)
+        FileHelper.addFile(fileData)
       }
-      //
-//
-//            if(mSettingsHelper != null && mSettingsHelper.getSettings() != null && mSettingsHelper.getSettings().downloadMissing())
-//            mFileHelper.addFile(mFileData);
     }
   }
 
   fun updateFile() {
-    fileData?.let { fileHelper?.updateFile(it) }
+    fileData?.let { FileHelper.updateFile(it) }
   }
 
   companion object {
-    fun getPathFromCaption(caption: String?): String? {
-      var captionString: String? = null
-      var path: String? = null
-      if(caption != null && caption.trim { it <= ' ' } != "") {
-        captionString = caption.trim { it <= ' ' }
-      }
-      if(captionString != null) {
-        val captionArray = captionString.split("\n").toTypedArray()
-        if(captionArray.size > 0 && captionArray[0] != "") {
-          path = captionArray[0]
-        }
-      }
-      return path
+    fun getPathFromCaption(caption: String): String? {
+      return Regex("""$FOLDER_ICON[^\r\n\t]*""", RegexOption.MULTILINE)
+        .find(caption)
+        ?.value
+        ?.replace(FOLDER_ICON, "")
     }
   }
 
-  init {
-    fileHelper = FileHelper.get()
-    settingsHelper = SettingsHelper.get()
-  }
 }

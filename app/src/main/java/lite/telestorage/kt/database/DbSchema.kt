@@ -34,11 +34,12 @@ class DbSchema {
       const val NAME = "name"
       const val MIME_TYPE = "mime_type"
       const val PATH = "path"
-      const val FILE_URI = "uri"
       const val UPLOADED = "uploaded"
       const val DOWNLOADED = "downloaded"
-      const val IN_PROGRESS = "in_progress"
       const val LAST_MODIFIED = "last_modified"
+      const val DATE = "date"
+      const val EDIT_DATE = "edit_date"
+      const val SIZE = "size"
     }
   }
 }

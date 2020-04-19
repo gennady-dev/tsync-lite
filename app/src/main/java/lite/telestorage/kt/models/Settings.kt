@@ -16,7 +16,8 @@ class Settings {
   var path: String? = null
   var uploadAsMedia = false
   var deleteUploaded = false
-  var downloadMissing = false
+  var downloadMissing = true
+  var uploadMissing = true
   var messagesDownloaded: Long = 0
   var lastUpdate: Long = Date().time
 

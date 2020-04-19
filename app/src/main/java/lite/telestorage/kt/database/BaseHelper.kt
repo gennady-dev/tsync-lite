@@ -44,11 +44,12 @@ class BaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAME, n
           ${FileTable.Cols.NAME} TEXT,
           ${FileTable.Cols.MIME_TYPE} TEXT,
           ${FileTable.Cols.PATH} TEXT,
-          ${FileTable.Cols.FILE_URI} TEXT,
           ${FileTable.Cols.UPLOADED} INTEGER,
           ${FileTable.Cols.DOWNLOADED} INTEGER,
-          ${FileTable.Cols.IN_PROGRESS} INTEGER,
-          ${FileTable.Cols.LAST_MODIFIED} INTEGER
+          ${FileTable.Cols.LAST_MODIFIED} INTEGER,
+          ${FileTable.Cols.DATE} INTEGER,
+          ${FileTable.Cols.EDIT_DATE} INTEGER,
+          ${FileTable.Cols.SIZE} INTEGER
         )"""
     )
 
@@ -60,7 +61,6 @@ class BaseHelper(context: Context?) : SQLiteOpenHelper(context, DATABASE_NAME, n
     db.execSQL("CREATE INDEX IF NOT EXISTS index_${FileTable.Cols.PATH} ON ${FileTable.NAME}(${FileTable.Cols.PATH})")
     db.execSQL("CREATE INDEX IF NOT EXISTS index_${FileTable.Cols.UPLOADED} ON ${FileTable.NAME}(${FileTable.Cols.UPLOADED})")
     db.execSQL("CREATE INDEX IF NOT EXISTS index_${FileTable.Cols.DOWNLOADED} ON ${FileTable.NAME}(${FileTable.Cols.DOWNLOADED})")
-    db.execSQL("CREATE INDEX IF NOT EXISTS index_${FileTable.Cols.IN_PROGRESS} ON ${FileTable.NAME}(${FileTable.Cols.IN_PROGRESS})")
 
   }
 

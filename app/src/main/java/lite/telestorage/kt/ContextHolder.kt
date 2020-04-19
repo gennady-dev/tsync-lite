@@ -2,49 +2,18 @@ package lite.telestorage.kt
 
 import android.content.Context
 
+object ContextHolder {
 
-class ContextHolder {
+  var context: Context? = null
+  var activity: MainActivity? = null
 
-  private var context: Context
-  private var activity: MainActivity? = null
-
-  private constructor(ctx: Context) {
+  fun ctx(ctx: Context) {
     context = ctx
   }
 
-  private constructor(mainActivity: MainActivity) {
+  fun ctx(mainActivity: MainActivity) {
     activity = mainActivity
     context = mainActivity.applicationContext
-  }
-
-  companion object {
-
-    private var instance: ContextHolder? = null
-
-    fun init(ctx: Context) {
-      if(instance == null) {
-        instance = ContextHolder(ctx)
-      }
-    }
-
-    fun init(mainActivity: MainActivity) {
-      if(instance == null) {
-        instance = ContextHolder(mainActivity)
-      }
-    }
-
-    fun get(): Context? {
-      return instance?.context
-    }
-
-    fun getActivity(): MainActivity? {
-      return instance?.activity
-    }
-
-    fun destroy() {
-      instance = null
-    }
-
   }
 
 }

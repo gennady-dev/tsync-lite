@@ -18,25 +18,28 @@ class FileCursor(cursor: Cursor?) : CursorWrapper(cursor) {
       val name = getString(getColumnIndex(Cols.NAME))
       val mimeType = getString(getColumnIndex(Cols.MIME_TYPE))
       val path = getString(getColumnIndex(Cols.PATH))
-      val fileUri = getString(getColumnIndex(Cols.FILE_URI))
       val uploaded = getInt(getColumnIndex(Cols.UPLOADED))
       val downloaded = getInt(getColumnIndex(Cols.DOWNLOADED))
-      val inProgress = getInt(getColumnIndex(Cols.IN_PROGRESS))
       val lastModified = getLong(getColumnIndex(Cols.LAST_MODIFIED))
+      val date = getLong(getColumnIndex(Cols.DATE))
+      val editDate = getLong(getColumnIndex(Cols.EDIT_DATE))
+      val size = getInt(getColumnIndex(Cols.SIZE))
       val file = FileData()
       file.uuid = UUID.fromString(uuid)
-      file.id = id
-      file.uniqueId = uniqueId
+      file.fileId = id
+      file.fileUniqueId = uniqueId
       file.chatId = chatId
       file.messageId = messageId
       file.name = name
       file.mimeType = mimeType
       file.path = path
-      file.fileUri = fileUri
       file.uploaded = uploaded == 1
       file.downloaded = downloaded == 1
-      file.inProgress = inProgress == 1
       file.lastModified = lastModified
+      file.date = date
+      file.editDate = editDate
+      file.size = size
+      file.updated = false
       return file
     }
 }

@@ -1,14 +1,13 @@
 package lite.telestorage.kt
 
 import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.kt.database.SettingsHelper
 import lite.telestorage.kt.models.FileData
-import lite.telestorage.kt.models.Settings
 import java.io.File
-import java.util.*
+import java.util.Date
 
 
 object Sync {
+
   var inProgress: Long = 0
   var syncStatus: SettingsFragment.SyncStatus? = null
   var dataTransferInProgress: Long = 0
@@ -18,47 +17,38 @@ object Sync {
   //    public static long sDownloadingInProgress;
   var waitingTime = 60000L
   var fileByPathMap: MutableMap<String, FileData> = mutableMapOf()
+  var fileByMsgIdMap: MutableMap<Long, FileData> = mutableMapOf()
   var updateMap: MutableMap<Long, FileData> = mutableMapOf()
   var pathByMsgIdMap: MutableMap<Long, String> = mutableMapOf()
+  var fileList: MutableList<FileData> = mutableListOf()
 
-  private val fileHelper: FileHelper?
-    get() = FileHelper.get()
+  private val isSetGroup: Boolean
+    get() = Settings.let { it.chatId != 0L && it.supergroupId != 0 }
 
-
-
-  fun init() {
-//        if(sFileDataMap == null || sUpdateMap == null || sPathByIdMap == null){
-//            sFileDataMap = new ConcurrentHashMap<String, FileData>();
-//            sPathByIdMap = new ConcurrentHashMap<Long, String>();
-//            sUpdateMap = new ConcurrentHashMap<Long, FileData>();
-//        }
-  }
-
-  fun start() {
-    println("sInProgress $inProgress")
+  fun start(type: Type = Type.ALL) {
     var sync = false
-    val settingsHelper: SettingsHelper? = SettingsHelper.get()
-    if(settingsHelper != null) {
-      val settings: Settings? = settingsHelper.settings
-      if(settings != null) {
-        clearFileDb()
-        val path: String? = settings.path
-        //              if(Tg.haveAuthorization && settings.isEnabled() && path != null && isSetGroup()){
-        if(settings.authenticated && settings.enabled && path != null && isSetGroup) {
-          sync = true
+      clearFileDb()
+      val path: String? = Settings.path
+      //              if(Tg.haveAuthorization && settings.isEnabled() && path != null && isSetGroup()){
+      if(Settings.authenticated && Settings.enabled && path != null && isSetGroup) {
+        sync = true
+      }
+
+    if(Data.inProgress == 0L && sync) {
+      if(type == Type.ALL){
+        Data.clearData()
+        syncFiles()
+        Messages.getMessages()
+      } else if(type == Type.LOCAL){
+        if(Data.dbFileList.isEmpty()){
+          Data.clearData()
+          syncFiles()
+          Messages.getMessages()
+        } else {
+          Data.syncFiles()
+          if(Data.fileQueue.isNotEmpty() && Data.dataTransferInProgress == 0L) FileUpdates.nextDataTransfer()
         }
       }
-    }
-    val currentTime = Date().time
-    if(inProgress != 0L && inProgress + waitingTime < currentTime) {
-      inProgress = 0
-      syncStatus?.setInProgress(false)
-    }
-    if(inProgress == 0L && sync) {
-      inProgress = currentTime
-      syncStatus?.setInProgress(true)
-      syncFiles()
-      Messages.get().getMessages()
     }
   }
 
@@ -68,44 +58,50 @@ object Sync {
   }
 
   fun nextDataTransfer() {
-    Tg.get()?.uploadNextFile()
-    Tg.get()?.downloadNextFile()
+    Tg.uploadNextFile()
+    Tg.downloadNextFile()
   }
 
   fun syncFiles() {
-    val settings: Settings? = SettingsHelper.get()?.settings
-    if(settings?.path != null && fileHelper != null) {
-      Fs.filePaths.clear()
+    if(Settings.path != null) {
+      Data.clearLocal()
+//      Data.fileAbsPathList.clear()
       Fs.scanPath()
-      fileByPathMap.clear()
-      fileHelper?.setFileDataMap()
-      if(Fs.filePaths.size > 0) {
-        for(absPath in Fs.filePaths) {
-          val relativePath: String? = Fs.getRelativePath(absPath)
-          if(relativePath != null) {
-            var file: FileData? = fileByPathMap[relativePath]
-            if(file == null) {
-              file = FileData()
-              file.name = File(absPath).name
-              file.mimeType = Fs.getMimeType(absPath)
-              file.uploaded = false
-              file.downloaded = true
-              file.path = relativePath
-              file.inProgress = false
-              file.lastModified = File(absPath).lastModified()
-              fileByPathMap[relativePath] = file
-            }
-          }
+//      fileByPathMap.clear()
+      FileHelper.setFileDataMap()
+      for(abs in Data.fileAbsPathList) {
+        val relative: String? = Fs.getRelPath(abs)
+        if(relative != null) {
+          var file: FileData? = Data.dbPathMap[relative]
+          if(file == null) {
+            val localFile = File(abs)
+            file = FileData()
+            file.name = localFile.name
+            file.mimeType = Fs.getMimeType(abs)
+            file.downloaded = true
+            file.path = relative
+            file.lastModified = localFile.lastModified()
+            file.size = localFile.length().toInt()
+            Data.addNewLocal(file)
+          } else Data.addLocal(file)
         }
       }
     }
   }
 
+//  private fun getPath(path: String): String? {
+//    return path
+////    return Fs.syncDirAbsPath?.let {
+////      if(path.matches("$it.+".toRegex(RegexOption.DOT_MATCHES_ALL))) path.replace("$it/", "")
+////      else null
+////    }
+//  }📁📁
+
+
   private fun clearFileDb() {
     if(!isFileDbCleared) {
-      val settings: Settings? = SettingsHelper.get()?.settings
-      if(settings != null && settings.chatId != 0L) {
-        FileHelper.get()?.leaveByChatId(settings.chatId)
+      if(Settings.chatId != 0L) {
+        FileHelper.leaveByChatId(Settings.chatId)
       }
       isFileDbCleared = true
     }
@@ -113,62 +109,23 @@ object Sync {
 
   fun updateDataTransferProgressStatus() {
     val currentTime = Date().time
-    if(dataTransferInProgress != 0L && dataTransferInProgress + waitingTime < currentTime) {
-      dataTransferInProgress = 0
+    if(Data.dataTransferInProgress != 0L && Data.dataTransferInProgress + waitingTime < currentTime) {
+      Data.dataTransferInProgress = 0
     }
   }
 
   fun updateProgressStatus() {
-    if(dataTransferInProgress == 0L) {
-      inProgress = 0
+    if(Data.dataTransferInProgress == 0L) {
+      Data.inProgress = 0
       syncStatus?.setInProgress(false)
     } else {
-      inProgress = dataTransferInProgress + waitingTime
+      Data.inProgress = Data.dataTransferInProgress + waitingTime
       syncStatus?.setInProgress(true)
     }
   }
 
-  //    public static void syncDb(){
-  val isSetGroup: Boolean
-    get() {
-      val settings: Settings? = SettingsHelper.get()?.settings
-      return settings != null && settings.chatId != 0L && settings.supergroupId != 0
-    }
+}
 
-
-  //        Settings settings = SettingsHelper.get().getSettings();
-  //        FileHelper fileHelper = FileHelper.get();
-  //        if(settings != null && settings.getPath() != null && fileHelper != null){
-  //            List<FileData> files = fileHelper.getFiles(
-  //                FileTable.Cols.MESSAGE_ID + " IS NOT NULL" + " OR " + FileTable.Cols.MESSAGE_ID + " <> ?",
-  //                new String[]{"0"});
-  //            ConcurrentMap<Long, TdApi.Message> messageMap = null;
-  //            if(Messages.get().mLastMessageMap != null && Messages.get().mLastMessageMap.size() > 0){
-  //                messageMap = Messages.get().mLastMessageMap;
-  //            }
-  //            for(FileData file : files){
-  //                String absPath = Fs.getFileAbsPath(file.getPath());
-  //                File localFile = new File(absPath);
-  //                if(messageMap != null){
-  //                    long messageId = file.getMessageId();
-  //                    if(messageId != 0){
-  //                        TdApi.Message message = messageMap.get(messageId);
-  //                        if(localFile.exists()){
-  //                            if(message == null){
-  //                                file.setUploaded(false);
-  //                                file.setMessageId(0);
-  //                                file.setFileId(0);
-  //                                file.setFileUniqueId("");
-  //                                fileHelper.updateFile(file);
-  //                            }
-  //                        } else {
-  //                            if(message == null){
-  //                                FileHelper.get().delete(file);
-  //                            }
-  //                        }
-  //                    }
-  //                }
-  //            }
-  //        }
-  //    }
+enum class Type {
+  ALL, LOCAL, REMOTE
 }

@@ -2,16 +2,13 @@ package lite.telestorage.kt.services
 
 import android.content.Context
 import android.provider.MediaStore
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequest
-import androidx.work.WorkManager
+import androidx.work.*
+import lite.telestorage.kt.Constants
 import java.util.concurrent.TimeUnit
 
 
 class BackgroundJobManagerImpl(context: Context) : BackgroundJobManager() {
 
-  private val WORK_TAG = "lite.telestorage.tags.work"
   private val MAX_CONTENT_TRIGGER_DELAY_MS = 1500L
 
   override fun scheduleContentObserverJob() {
@@ -27,7 +24,19 @@ class BackgroundJobManagerImpl(context: Context) : BackgroundJobManager() {
       .Builder(ChangeWatcher::class.java)
       .setConstraints(constrains)
       .build()
-    workManager?.enqueueUniqueWork(WORK_TAG, ExistingWorkPolicy.KEEP, request)
+    workManager?.enqueueUniqueWork(Constants.fileObserverSyncTag, ExistingWorkPolicy.KEEP, request)
+  }
+
+  override fun schedulePeriodicJob() {
+    val periodicRequest = PeriodicWorkRequest
+      .Builder(PeriodicSync::class.java, 15, TimeUnit.MINUTES)
+      .addTag(Constants.periodicSyncTag)
+      .build()
+    workManager?.enqueueUniquePeriodicWork(
+      Constants.periodicSyncTag,
+      ExistingPeriodicWorkPolicy.KEEP,
+      periodicRequest
+    )
   }
 
   companion object {

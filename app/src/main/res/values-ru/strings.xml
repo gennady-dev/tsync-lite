@@ -12,6 +12,7 @@
     <string name="code_number_hint">только цифры</string>
     <string name="message_ok">Приложение авторизовано</string>
     <string name="text_select_group">Выберите группу для сохранения файлов</string>
+    <string name="text_select_group_not_found">Похоже вы не создали ни одной группы/канала</string>
     <string name="text_channel_created">Канал создан</string>
     <string name="text_channel_updated">Канал обновлен</string>
 
