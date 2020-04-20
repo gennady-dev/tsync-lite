@@ -107,6 +107,7 @@ object Fs {
   }
   //
   fun scanPath(path: String? = syncDirAbsPath) {
+    if(path == syncDirAbsPath) Data.fileAbsPathList.clear()
     if(path != null){
       val root = File(path)
       val list = root.listFiles()

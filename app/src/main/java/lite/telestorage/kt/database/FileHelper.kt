@@ -35,25 +35,12 @@ object FileHelper {
     return files
   }
 
-  fun setFileDataMap() {
+  fun setFileList() {
     val cursor = queryFiles(null, arrayOf())
     cursor.use {
       it.moveToFirst()
       while(!it.isAfterLast) {
-//        val file: FileData = it.file
-        Data.addDb(it.file)
-//        Sync.fileList.add(file)
-//        Data.dbFileList.add(file)
-//        val path: String? = file.path
-//        if(path != null) {
-//          Sync.fileByPathMap[path] = file
-//          Data.dbPathMap[path] = file
-//          if(file.messageId != 0L) {
-//            Sync.pathByMsgIdMap[file.messageId] = path
-//            Sync.fileByMsgIdMap[file.messageId] = file
-//            Data.dbMsgIdMap[file.messageId] = file
-//          }
-//        }
+        Data.dbFileList.add(it.file)
         it.moveToNext()
       }
     }

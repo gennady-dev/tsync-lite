@@ -51,15 +51,35 @@ object Messages {
     } else {
       hasFullMessageMap = true
       Log.d("hasFullMessageMap", messageMap.toString())
-
-      Data.dataTransferInProgress = 0
-      FileUpdates.syncQueue()
-      if(Data.toDelete.isNotEmpty()){
-        for(file in Data.toDelete){
-          FileHelper.delete(file)
+      Data.remoteFileList.groupBy { it.path }.also {
+        for(list in it.values){
+          list.maxBy { msg -> msg.messageId }?.also { f ->
+            list.minus(f).also { l ->
+              Data.remoteFileList.removeAll(l)
+              Data.remoteToDelete.addAll(l)
+            }
+          }
         }
       }
-      FileUpdates.nextDataTransfer()
+      Data.dataTransferInProgress = 0
+      FileUpdates.syncQueue()
+
+      if(Data.localToDelete.isNotEmpty()){
+        for(file in Data.localToDelete){
+          FileHelper.delete(file)
+        }
+        Data.localToDelete.clear()
+      }
+      if(Data.remoteToDelete.isNotEmpty()){
+        val ids = Data.remoteToDelete.map { it.messageId }
+        if(ids.isNotEmpty()){
+          Data.msgIdsForDelete.clear()
+          Data.msgIdsForDelete.addAll(ids.toMutableList())
+          deleteMsgByIds(ids.toLongArray())
+        }
+      } else {
+        FileUpdates.nextDataTransfer()
+      }
 
       Data.debugInfo()
 
@@ -73,10 +93,9 @@ object Messages {
     }
   }
 
-  fun deleteMsgByIds(idSet: MutableSet<Long>){
-    val ids = idSet.toLongArray()
-    if(Settings.chatId != 0L && ids.isNotEmpty()){
-      Tg.client?.send(TdApi.DeleteMessages(Settings.chatId, ids, true), Tg.updateHandler)
+  fun deleteMsgByIds(idArray: LongArray){
+    if(Settings.chatId != 0L && idArray.isNotEmpty()){
+      Tg.client?.send(TdApi.DeleteMessages(Settings.chatId, idArray, true), Tg.updateHandler)
     }
   }
 

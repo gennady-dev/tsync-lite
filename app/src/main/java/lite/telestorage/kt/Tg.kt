@@ -809,7 +809,11 @@ object Tg {
             val file = Message(it.message).fileData
 //            if(file.upload) FileUpdates.uploadingUpdate(file)
 //            else FileUpdates.newMessageHandler(file)
-//            if(!file.upload) FileUpdates.newMessageHandler(file)
+            if(!file.upload) {
+              synchronized(Data){
+                FileUpdates.newMessageHandler(file)
+              }
+            }
           }
           val debug = null
         }
@@ -819,6 +823,11 @@ object Tg {
 //            if(file.upload) FileUpdates.uploadingUpdate(file)
 //            else FileUpdates.newMessageHandler(file)
 //            if(!file.upload) FileUpdates.newMessageHandler(file)
+            if(!file.upload) {
+              synchronized(Data){
+                FileUpdates.newMessageHandler(file)
+              }
+            }
           }
           val debug = null
         }

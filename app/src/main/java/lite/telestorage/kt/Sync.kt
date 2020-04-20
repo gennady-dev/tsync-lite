@@ -62,17 +62,26 @@ object Sync {
     Tg.downloadNextFile()
   }
 
-  fun syncFiles() {
+  private fun syncFiles() {
     if(Settings.path != null) {
       Data.clearLocal()
-//      Data.fileAbsPathList.clear()
       Fs.scanPath()
-//      fileByPathMap.clear()
-      FileHelper.setFileDataMap()
+      FileHelper.setFileList()
+      Data.dbFileList.groupBy { it.path }.also {
+        for(list in it.values){
+          list.maxBy { msg -> msg.messageId }?.also { f ->
+            list.minus(f).also { l ->
+              Data.dbFileList.removeAll(l)
+              Data.localToDelete.addAll(l)
+            }
+          }
+        }
+      }
+
       for(abs in Data.fileAbsPathList) {
         val relative: String? = Fs.getRelPath(abs)
         if(relative != null) {
-          var file: FileData? = Data.dbPathMap[relative]
+          var file: FileData? = Data.dbFileList.find { it.path == relative }
           if(file == null) {
             val localFile = File(abs)
             file = FileData()
@@ -82,8 +91,9 @@ object Sync {
             file.path = relative
             file.lastModified = localFile.lastModified()
             file.size = localFile.length().toInt()
-            Data.addNewLocal(file)
-          } else Data.addLocal(file)
+            Data.newLocalFileList.add(file)
+          }
+          Data.localFileList.add(file)
         }
       }
     }
