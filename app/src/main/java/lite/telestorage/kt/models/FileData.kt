@@ -1,5 +1,6 @@
 package lite.telestorage.kt.models
 
+import org.drinkless.td.libcore.telegram.TdApi
 import java.util.UUID
 
 class FileData {
@@ -107,6 +108,20 @@ class FileData {
 
   var upload = false
   var download = false
+
+  var lastDate: Long = 0
+    get() = if(editDate == 0L) date else editDate
+
+  override fun equals(other: Any?): Boolean {
+    return (other is FileData)
+      && messageId == other.messageId
+      && lastDate == other.lastDate
+      && size == other.size
+  }
+
+  override fun hashCode(): Int {
+    return path.hashCode() + messageId.hashCode() + lastDate.hashCode() + size.hashCode()
+  }
 
   private fun valueChanged(old: String?, new: String?): Boolean {
     return old != if(!new.isNullOrBlank()) new.trim() else null

@@ -125,9 +125,11 @@ object Tg {
       TdApi.AuthorizationStateReady.CONSTRUCTOR -> {
         Log.d(null, "AuthorizationStateReady")
         haveAuthorization = true
-        settingsFragment?.setLogged(true)
         setMainChatList(10)
-        Sync.start()
+        settingsFragment?.also {
+          it.setLogged(true)
+          Sync.start()
+        }
       }
       TdApi.AuthorizationStateLoggingOut.CONSTRUCTOR -> {
         Log.d(null, "AuthorizationStateLoggingOut")

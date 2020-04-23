@@ -189,7 +189,12 @@ object FileHelper {
 
     private fun getContentValues(file: FileData): ContentValues {
       val values = ContentValues()
-      values.put(Cols.UUID, (file.uuid ?: UUID.randomUUID()).toString())
+      var uuid: UUID? = file.uuid
+      if(uuid == null) {
+        uuid = UUID.randomUUID()
+        file.uuid = uuid
+      }
+      values.put(Cols.UUID, uuid.toString())
       values.put(Cols.FILE_ID, file.fileId)
       values.put(Cols.FILE_UNIQUE_ID, file.fileUniqueId)
       values.put(Cols.CHAT_ID, file.chatId)

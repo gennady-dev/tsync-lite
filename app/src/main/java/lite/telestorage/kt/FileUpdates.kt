@@ -6,6 +6,7 @@ import lite.telestorage.kt.models.FileData
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
 import java.io.IOException
+import kotlin.concurrent.timer
 
 object FileUpdates {
 
@@ -36,10 +37,12 @@ object FileUpdates {
           it.editDate = file.editDate
           FileHelper.updateFile(it)
           it.updated = false
-          Data.dataTransferInProgress = 0
           next = true
+          Data.remoteFileList.filter { l -> l.path == it.path }
+            .forEach { f -> Data.remoteFileList.remove(f) }
           Data.remoteFileList.add(it)
           deleteUploaded(it)
+          Data.dataTransferInProgress = 0
         }
       }
       nextDataTransfer(next)
@@ -76,18 +79,22 @@ object FileUpdates {
         ){
           val downloadedFile = update.localPath?.let { File(it) }
           val localFile = Fs.syncDirAbsPath?.let { File("${it}/${cur.path}") }
-          if(downloadedFile?.exists() == true && localFile?.exists() == false){
+          if(downloadedFile?.exists() == true && localFile != null){
+            if(localFile.exists()) localFile.delete()
             if(Fs.dirExist(path)){
               try {
                 Fs.move(downloadedFile, localFile)
                 cur.downloaded = true
-                cur.inProgress = false
+                cur.lastModified = localFile.lastModified()
+                cur.size = localFile.length().toInt()
                 FileHelper.updateFile(cur)
                 cur.updated = false
-                Data.dataTransferInProgress = 0
                 next = true
+                Data.dbFileList.find { l -> l.path == path }?.also { Data.remoteFileList.remove(it) }
+                Data.localFileList.find { l -> l.path == path }?.also { Data.localFileList.remove(it) }
                 Data.dbFileList.add(cur)
                 Data.localFileList.add(cur)
+                Data.dataTransferInProgress = 0
               } catch(e: IOException) {
                 Log.d("update", "IOException $e")
               }
@@ -119,8 +126,20 @@ object FileUpdates {
       }
       if(!handled) {
         Data.addFromMsg(file)
-        syncQueue(SyncType.NEW_REMOTE)
-        if(Data.dataTransferInProgress == 0L) nextDataTransfer()
+//        syncQueue(SyncType.NEW_REMOTE)
+//        if(Data.dataTransferInProgress == 0L) nextDataTransfer()
+
+        Data.dataTimer.also {
+          if(it == null){
+            Data.dataTimer = timer("newMsgTimer", false, 0, 5000L) {
+              Log.d("newMsgTimer", "timer started")
+              synchronized(Data){
+                syncQueue(SyncType.NEW_REMOTE)
+              }
+              if(Data.dataTransferInProgress == 0L) nextDataTransfer()
+            }
+          }
+        }
       }
 
 //      if(!handled && file.uploaded && file.path != null) {
@@ -179,6 +198,7 @@ object FileUpdates {
       }
       if(currentFile == null){
         Data.dataTransferInProgress = 0
+        Data.dataTimer?.cancel()
 //        Data.dbFileList.forEach { it.updated = false }
 //        if(Data.msgIdsForDelete.isNotEmpty()){
 //          Messages.deleteMsgByIds(Data.msgIdsForDelete)
@@ -215,13 +235,42 @@ object FileUpdates {
       SyncType.ON_START -> {
         val dbPathMap = Data.dbFileList.associateBy { it.path }
         val dbPathList = dbPathMap.map { it.key }
+
         val remotePathMap = Data.remoteFileList.associateBy { it.path }
         val remotePathList = remotePathMap.map { it.key }
+
         val localPathMap = Data.localFileList.associateBy { it.path }
         val localPathList = localPathMap.map { it.key }
+
         val newRemote = remotePathList.subtract(localPathList)
         val newLocal = localPathList.subtract(remotePathList)
+
+        val toDeleteFromDb = dbPathList.subtract(localPathList).subtract(remotePathList)
+
+        val forUpdate = dbPathList.subtract(newRemote).subtract(newLocal).subtract(toDeleteFromDb)
+
+        for(path in forUpdate){
+          val local = localPathMap[path]
+          val remote = remotePathMap[path]
+          if(local != null && remote != null){
+            if(local.size != remote.size){
+              if(local.lastModified > remote.lastDate){
+                local.uploaded = false
+              } else if(remote.lastDate > local.lastDate){
+                local.downloaded = false
+              }
+            }
+            local.messageId = remote.messageId
+            local.fileUniqueId = remote.fileUniqueId
+            local.fileId = remote.fileId
+            local.date = remote.date
+            local.editDate = remote.editDate
+            Data.fileQueue.add(local)
+          }
+        }
+
         val debug = null
+
         for(path in newRemote) {
           remotePathMap[path]?.also {
             it.uploaded = true
@@ -243,7 +292,7 @@ object FileUpdates {
 
         Data.remoteFileList.groupBy { it.path }.also {
           for(list in it.values){
-            list.maxBy { msg -> msg.messageId }?.also { f ->
+            list.maxBy { msg -> msg.lastDate }?.also { f ->
               list.minus(f).also { l ->
                 Data.remoteFileList.removeAll(l)
                 Data.remoteToDelete.addAll(l)
@@ -260,32 +309,57 @@ object FileUpdates {
               file.downloaded = !Settings.downloadMissing
               Data.fileQueue.add(file)
             } else {
-              if(file.messageId > dbFile.messageId){
+              if(file.lastDate > dbFile.lastDate){
                 if(file.size != dbFile.size){
-                  dbFile.downloaded = !Settings.downloadMissing
+                  file.downloaded = !Settings.downloadMissing
+                } else {
+                  file.downloaded = true
                 }
-                Data.copyFile(file, dbFile)
-                Data.fileQueue.add(dbFile)
+                file.uuid = dbFile.uuid
+                Data.fileQueue.add(file)
+                if(file.messageId != dbFile.messageId && dbFile.messageId != 0L){
+                  Data.remoteToDelete.add(dbFile)
+                }
                 file.updated = false
-              } else if(file.messageId == dbFile.messageId){
-                val localDate = if(dbFile.editDate == 0L) dbFile.date else dbFile.editDate
-                val remoteDate = if(file.editDate == 0L) file.date else file.editDate
+              } else if(dbFile.lastModified > file.lastDate){
                 if(file.size != dbFile.size){
-                  if(localDate < remoteDate){
-                    dbFile.downloaded = !Settings.downloadMissing
-                    Data.copyFile(file, dbFile)
-                    Data.fileQueue.add(dbFile)
-                  }
-                  file.updated = false
+                  dbFile.uploaded = !Settings.uploadMissing
+                } else {
+                  dbFile.uploaded = true
                 }
-              } else {
-                Data.remoteFileList.remove(file)
-                Data.remoteToDelete.add(file)
+                Data.fileQueue.add(dbFile)
+                if(file.messageId != dbFile.messageId){
+                  Data.remoteFileList.remove(file)
+                  Data.remoteToDelete.add(file)
+                }
               }
+
+//              if(file.messageId > dbFile.messageId){
+//                if(file.size != dbFile.size){
+//                  dbFile.downloaded = !Settings.downloadMissing
+//                }
+//                Data.copyFile(file, dbFile)
+//                Data.fileQueue.add(dbFile)
+//                file.updated = false
+//              } else if(file.messageId == dbFile.messageId){
+//                val localDate = if(dbFile.editDate == 0L) dbFile.date else dbFile.editDate
+//                val remoteDate = if(file.editDate == 0L) file.date else file.editDate
+//                if(file.size != dbFile.size){
+//                  if(localDate < remoteDate){
+//                    dbFile.downloaded = !Settings.downloadMissing
+//                    Data.copyFile(file, dbFile)
+//                    Data.fileQueue.add(dbFile)
+//                  }
+//                  file.updated = false
+//                }
+//              } else {
+//                Data.remoteFileList.remove(file)
+//                Data.remoteToDelete.add(file)
+//              }
             }
-          } else {
-            Data.remoteFileList.remove(file)
-            Data.remoteToDelete.add(file)
+//          } else {
+//            Data.remoteFileList.remove(file)
+//            Data.remoteToDelete.add(file)
           }
         }
 

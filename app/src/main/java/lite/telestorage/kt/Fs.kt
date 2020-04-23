@@ -107,7 +107,7 @@ object Fs {
   }
   //
   fun scanPath(path: String? = syncDirAbsPath) {
-    if(path == syncDirAbsPath) Data.fileAbsPathList.clear()
+    if(path == syncDirAbsPath) Data.absPathList.clear()
     if(path != null){
       val root = File(path)
       val list = root.listFiles()
@@ -116,7 +116,10 @@ object Fs {
           if(file.isDirectory) {
             scanPath(file.absolutePath)
           } else {
-            Data.fileAbsPathList.add(file.absolutePath)
+            file.absolutePath.also {
+              Data.absPathList.add(it)
+              getRelPath(it)?.also { p -> Data.pathMap[p] = it }
+            }
           }
         }
       }

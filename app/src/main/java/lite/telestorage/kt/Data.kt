@@ -1,21 +1,29 @@
 package lite.telestorage.kt
 
-import lite.telestorage.kt.database.FileHelper
 import lite.telestorage.kt.models.FileData
 import org.drinkless.td.libcore.telegram.TdApi
-import java.util.Date
+import java.util.*
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.timer
 
 object Data {
 
   val lock = ReentrantLock()
   private const val waitingTime = 60000L
+  private var progressTimer: Timer? = null
 
   var inProgress: Long = 0
     set(value) {
       if((if(field == 0L) 0L else 1L) != (if(value == 0L) 0L else 1L)){
-        if(value == 0L) Sync.syncStatus?.setInProgress(false)
-        else Sync.syncStatus?.setInProgress(true)
+        if(value == 0L){
+          Sync.syncStatus?.setInProgress(false)
+          progressTimer?.cancel()
+          progressTimer = null
+        }
+        else {
+          Sync.syncStatus?.setInProgress(true)
+          setTimerTask()
+        }
       }
       field = value
     }
@@ -44,8 +52,11 @@ object Data {
 
   var current: FileData? = null
   var fileQueue: MutableList<FileData> = mutableListOf()
+  var dataTimer: Timer? = null
 
-  val fileAbsPathList: MutableSet<String> = mutableSetOf()
+  val absPathList: MutableSet<String> = mutableSetOf()
+  val pathMap: MutableMap<String, String> = mutableMapOf()
+
   private val oldFileAbsPathList: MutableSet<String> = mutableSetOf()
   val dbFileList: MutableList<FileData> = mutableListOf()
   val localFileList: MutableList<FileData> = mutableListOf()
@@ -57,6 +68,43 @@ object Data {
 
   val localToDelete: MutableList<FileData> = mutableListOf()
   val remoteToDelete: MutableList<FileData> = mutableListOf()
+
+  fun setTimerTask(){
+    if(progressTimer == null){
+      progressTimer = timer("progressTimer", false, 0, 60){
+        if(inProgress + waitingTime < Date().time) inProgress = 0
+      }
+    }
+  }
+
+  fun deleteMsgDuplicates(){
+    remoteFileList
+    remoteFileList.groupBy { it.path }.also {
+      for(list in it.values){
+        list.maxBy { msg -> msg.lastDate }?.also { f ->
+          list.minus(f).also { l ->
+            remoteFileList.removeAll(l)
+            remoteToDelete.addAll(l)
+          }
+        }
+      }
+    }
+  }
+
+  fun deleteDbDuplicates(){
+    dbFileList.groupBy { it.path }.also {
+      for(list in it.values){
+        list.maxBy { msg -> msg.lastDate }?.also { f ->
+          list.minus(f).also { l ->
+            f
+            l
+            dbFileList.removeAll(l)
+            localToDelete.addAll(l)
+          }
+        }
+      }
+    }
+  }
 
 //  fun addDb(file: FileData){
 //    dbFileList.
@@ -152,6 +200,7 @@ object Data {
       && file.uploaded
     ){
       remoteFileList.add(file)
+
 //      val fileData: FileData = localFilePathMap[path]?.also {
 //          if(it.size == file.size){
 //            if(file.messageId > it.messageId){
@@ -349,7 +398,7 @@ object Data {
 
     msgIdsForDelete
 
-    fileAbsPathList
+    absPathList
     oldFileAbsPathList
 
     dbFileList

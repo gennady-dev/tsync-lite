@@ -75,8 +75,8 @@ class SettingsFragment : Fragment() {
     buttonEditPath = v.findViewById(R.id.imageViewEditFolder)
 
     buttonLogin?.setText(R.string.button_settings_login)
-    buttonLogin?.visibility = View.VISIBLE
-    progressBar?.visibility = View.GONE
+    buttonLogin?.visibility = View.GONE
+    progressBar?.visibility = View.VISIBLE
 
     val syncStatus = SyncStatus()
     Sync.syncStatus = syncStatus
@@ -84,7 +84,7 @@ class SettingsFragment : Fragment() {
     Tg.settingsFragment = this
     if(Settings.authenticated) {
       setLogged(true)
-    }
+    } else setLogged(false)
 
     buttonLogin?.setOnClickListener {
       Settings.also {

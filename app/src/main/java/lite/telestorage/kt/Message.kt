@@ -172,7 +172,8 @@ class Message() {
     fileUniqueId = update.fileUniqueId
     upload = update.upload
     uploaded = update.uploaded
-    localPath = update.localPath?.also { path = update.filePath }
+    localPath = update.localPath
+    update.filePath.also { if(!it.isNullOrBlank()) path = it }
     download = update.download
     downloaded = update.downloaded
 

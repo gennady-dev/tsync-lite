@@ -50,17 +50,11 @@ object Messages {
       getMessages(false)
     } else {
       hasFullMessageMap = true
+      Data.remoteFileList
       Log.d("hasFullMessageMap", messageMap.toString())
-      Data.remoteFileList.groupBy { it.path }.also {
-        for(list in it.values){
-          list.maxBy { msg -> msg.messageId }?.also { f ->
-            list.minus(f).also { l ->
-              Data.remoteFileList.removeAll(l)
-              Data.remoteToDelete.addAll(l)
-            }
-          }
-        }
-      }
+
+      Data.deleteMsgDuplicates()
+
       Data.dataTransferInProgress = 0
       FileUpdates.syncQueue()
 

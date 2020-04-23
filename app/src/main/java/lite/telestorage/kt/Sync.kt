@@ -40,14 +40,14 @@ object Sync {
         syncFiles()
         Messages.getMessages()
       } else if(type == Type.LOCAL){
-        if(Data.dbFileList.isEmpty()){
-          Data.clearData()
-          syncFiles()
-          Messages.getMessages()
-        } else {
-          Data.syncFiles()
-          if(Data.fileQueue.isNotEmpty() && Data.dataTransferInProgress == 0L) FileUpdates.nextDataTransfer()
-        }
+//        if(Data.dbFileList.isEmpty()){
+//          Data.clearData()
+//          syncFiles()
+//          Messages.getMessages()
+//        } else {
+//          Data.syncFiles()
+//          if(Data.fileQueue.isNotEmpty() && Data.dataTransferInProgress == 0L) FileUpdates.nextDataTransfer()
+//        }
       }
     }
   }
@@ -66,32 +66,29 @@ object Sync {
     if(Settings.path != null) {
       Data.clearLocal()
       Fs.scanPath()
+      Data.absPathList
       FileHelper.setFileList()
-      Data.dbFileList.groupBy { it.path }.also {
-        for(list in it.values){
-          list.maxBy { msg -> msg.messageId }?.also { f ->
-            list.minus(f).also { l ->
-              Data.dbFileList.removeAll(l)
-              Data.localToDelete.addAll(l)
-            }
-          }
-        }
-      }
+      Data.deleteDbDuplicates()
 
-      for(abs in Data.fileAbsPathList) {
-        val relative: String? = Fs.getRelPath(abs)
-        if(relative != null) {
-          var file: FileData? = Data.dbFileList.find { it.path == relative }
+      for(abs in Data.absPathList) {
+        val relPath: String? = Fs.getRelPath(abs)
+        if(relPath != null) {
+          var file: FileData? = Data.dbFileList.find { it.path == relPath }
+          val localFile = File(abs)
           if(file == null) {
-            val localFile = File(abs)
             file = FileData()
             file.name = localFile.name
             file.mimeType = Fs.getMimeType(abs)
             file.downloaded = true
-            file.path = relative
+            file.path = relPath
             file.lastModified = localFile.lastModified()
             file.size = localFile.length().toInt()
             Data.newLocalFileList.add(file)
+          } else {
+//            if(localFile.lastModified() > file.lastModified){
+//              file.uploaded = false
+//            }
+            file.lastModified = localFile.lastModified()
           }
           Data.localFileList.add(file)
         }
