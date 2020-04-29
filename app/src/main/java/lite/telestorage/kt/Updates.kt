@@ -15,7 +15,7 @@ object Updates {
     for(action in actions){
       action()
     }
-    FileUpdates.syncQueue()
+    FileUpdates.syncAll()
     actions = mutableListOf()
   }
 

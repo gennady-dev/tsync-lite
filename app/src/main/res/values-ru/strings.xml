@@ -21,7 +21,7 @@
 
     <string name="text_settings_synced_folders">Директория</string>
     <string name="text_settings_current_folder">текущая</string>
-    <string name="text_settings_folder_path">/fgsdgfdfg/sdfgdfg/sdfgdfg/sdfgdfg/sdfgdfg/sdfg</string>
+    <string name="text_settings_change_folder_warning">После изменения директории необходимо будет снова авторизовать приложение в Телеграме!</string>
     <string name="text_settings_edit_folder">Редактировать</string>
     <string name="text_settings_folder_not_set">не указано</string>
     <string name="text_settings_selected_group">Выбранная группа</string>
@@ -47,10 +47,10 @@
     <string name="text_settings_download_missing_title">Загружать отсутствующие</string>
     <string name="text_settings_download_missing_desc">Отсутствующие локально файлы будут загружены из группы</string>
 
-    <string name="text_settings_upload_as_media_title">Выгружать как медиа</string>
-    <string name="text_settings_upload_as_media_image">Выгружать как медиа</string>
-    <string name="text_settings_upload_as_media">Файлы будут выгружены как медиа</string>
-    <string name="text_settings_upload_as_document">Файлы будут выгружены как документы</string>
+    <string name="text_settings_upload_missing_title">Выгружать отсутствующие</string>
+    <string name="text_settings_upload_missing_image">Выгружать отсутствующие</string>
+    <string name="text_settings_not_upload_missing">Отсутствующие файлы не будут выгружаться</string>
+    <string name="text_settings_upload_missing">Отсутствующие в Телеграме файлы будут выгружаться</string>
 
     <string name="text_settings_default_group_name_title">Имя группы</string>
     <string name="text_settings_default_group_name_hint">укажите имя группы</string>

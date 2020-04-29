@@ -379,43 +379,43 @@
                 android:padding="8dp">
 
                 <ImageView
-                    android:id="@+id/imageViewAsMedia"
+                    android:id="@+id/imageViewUploadMissing"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="7dp"
                     android:layout_marginTop="5dp"
-                    android:contentDescription="@string/text_settings_upload_as_media_image"
+                    android:contentDescription="@string/text_settings_upload_missing_image"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:srcCompat="@drawable/ic_document" />
+                    app:srcCompat="@drawable/ic_upload" />
 
                 <TextView
-                    android:id="@+id/textUploadAsMediaTitle"
+                    android:id="@+id/textUploadMissing"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="@string/text_settings_upload_as_media_title"
+                    android:text="@string/text_settings_upload_missing_title"
                     android:textAllCaps="false"
                     android:textSize="24sp"
-                    app:layout_constraintEnd_toStartOf="@+id/switchUploadAsMedia"
-                    app:layout_constraintStart_toEndOf="@+id/imageViewAsMedia"
+                    app:layout_constraintEnd_toStartOf="@+id/switchUploadMissing"
+                    app:layout_constraintStart_toEndOf="@+id/imageViewUploadMissing"
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
-                    android:id="@+id/textViewUploadAsMediaCurrent"
+                    android:id="@+id/textViewUploadMissing"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:layout_marginTop="5dp"
-                    android:text="@string/text_settings_upload_as_document"
+                    android:text="@string/text_settings_upload_missing"
                     android:textAllCaps="false"
                     android:textSize="14sp"
-                    app:layout_constraintEnd_toStartOf="@+id/switchUploadAsMedia"
+                    app:layout_constraintEnd_toStartOf="@+id/switchUploadMissing"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/textUploadAsMediaTitle" />
+                    app:layout_constraintTop_toBottomOf="@+id/textUploadMissing" />
 
                 <Switch
-                    android:id="@+id/switchUploadAsMedia"
+                    android:id="@+id/switchUploadMissing"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -427,6 +427,7 @@
                     />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
+
         </LinearLayout>
 
     </ScrollView>

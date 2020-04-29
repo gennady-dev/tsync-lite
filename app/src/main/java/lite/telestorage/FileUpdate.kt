@@ -1,4 +1,4 @@
-package lite.telestorage.kt
+package lite.telestorage
 
 
 import android.content.Context

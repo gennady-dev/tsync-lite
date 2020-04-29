@@ -1,4 +1,4 @@
-package lite.telestorage.kt
+package lite.telestorage
 
 import android.os.Build.VERSION
 import android.os.Environment

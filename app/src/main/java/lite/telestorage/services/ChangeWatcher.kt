@@ -1,4 +1,4 @@
-package lite.telestorage.kt.services
+package lite.telestorage.services
 
 import android.content.Context
 import android.util.Log

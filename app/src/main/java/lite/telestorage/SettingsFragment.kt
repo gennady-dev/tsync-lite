@@ -1,4 +1,4 @@
-package lite.telestorage.kt
+package lite.telestorage
 
 
 import com.obsez.android.lib.filechooser.ChooserDialog
