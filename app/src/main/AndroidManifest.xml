@@ -19,7 +19,7 @@
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
 
-        <activity android:name=".MainActivity">
+        <activity android:name="lite.telestorage.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -27,7 +27,7 @@
         </activity>
 
         <receiver
-            android:name=".services.StartService"
+            android:name="lite.telestorage.services.StartService"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
@@ -36,7 +36,7 @@
         </receiver>
 
         <receiver
-            android:name=".services.StartupReceiver"
+            android:name="lite.telestorage.services.StartupReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>

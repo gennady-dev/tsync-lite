@@ -31,5 +31,7 @@ object Constants {
   const val deleteUploaded = "deleteUploaded"
   const val downloadMissing = "downloadMissing"
   const val uploadMissing = "uploadMissing"
+  const val canSend = "canSend"
+  const val device = "device"
 
 }

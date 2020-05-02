@@ -4,15 +4,14 @@ package lite.telestorage
 import com.obsez.android.lib.filechooser.ChooserDialog
 import android.os.Bundle
 import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.widget.*
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
-import lite.telestorage.kt.database.FileHelper
+import kotlinx.android.synthetic.main.app_bar.*
+//import lite.telestorage.kt.database.FileHelper
 import kotlin.concurrent.thread
 
 
@@ -33,15 +32,11 @@ class SettingsFragment : Fragment() {
   private var imageViewDelete: ImageView? = null
   private var textViewDeleteUploadedCurrent: TextView? = null
   private var switchDeleteUploaded: Switch? = null
-  private var deleteUploaded = false
   private var imageViewUploadMissing: ImageView? = null
   private var textViewUploadMissingCurrent: TextView? = null
   private var switchUploadMissing: Switch? = null
-  private var uploadMissing = false
   private var switchDownloadMissing: Switch? = null
-  private var downloadMissing = false
-  private var floatingActionButton: FloatingActionButton? = null
-  private var groups: List<Group>? = null
+  private var syncActionButton: Menu? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -70,9 +65,15 @@ class SettingsFragment : Fragment() {
     progressBar = v.findViewById(R.id.loadingProgress)
     switchSync = v.findViewById(R.id.switchSync)
     groupNameTextView = v.findViewById(R.id.textViewSelectedGroupName)
-    floatingActionButton = v.findViewById(R.id.floatingActionButton)
     buttonEditGroup = v.findViewById(R.id.imageViewEditGroup)
     buttonEditPath = v.findViewById(R.id.imageViewEditFolder)
+//    syncActionButton = v.findViewById(R.id.syncActionButton)
+
+//    val topAppBar: Toolbar = v.findViewById(R.id.topAppBar)
+
+//    topAppBar.setOnMenuItemClickListener {
+//      Toast.makeText(context, "adddddd", Toast.LENGTH_SHORT).show()
+//    }
 
     buttonLogin?.setText(R.string.button_settings_login)
     buttonLogin?.visibility = View.GONE
@@ -127,15 +128,18 @@ class SettingsFragment : Fragment() {
       toggleUploadMissing(isChecked, true)
     }
 
-    floatingActionButton?.setOnClickListener {
-//      thread(start = true, block = { Sync.start() })
-      thread {
-        Settings.uploadMissing = true
-        Settings.save()
-        Sync.start()
-      }
-//      Thread(Runnable { Sync.start() }).start()
-    }
+//    syncActionButton?. .setOnMenuItemClickListener {
+////      thread(start = true, block = { Sync.start() })
+//      if(Data.inProgress == 0L){
+//        it.setIcon(R.drawable.ic_sync_stop_white)
+//        thread {
+//          Sync.start()
+//        }
+//      } else {
+//
+//      }
+//      true
+//    }
 
     buttonEditGroup?.setOnClickListener {
       if(Settings.authenticated) {
@@ -158,6 +162,26 @@ class SettingsFragment : Fragment() {
     return v
   }
 
+  override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+    inflater.inflate(R.menu.top_app_bar, menu)
+    super.onCreateOptionsMenu(menu, inflater)
+  }
+
+  override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
+    R.id.syncActionButton -> {
+      Log.d("syncAction", "clicked")
+      Toast.makeText(activity?.applicationContext, "adddddd", Toast.LENGTH_SHORT).show()
+      true
+    }
+    else -> {
+      Log.d("syncAction", "else")
+      Toast.makeText(activity?.applicationContext, "else menu", Toast.LENGTH_SHORT).show()
+      // If we got here, the user's action was not recognized.
+      // Invoke the superclass to handle it.
+      super.onOptionsItemSelected(item)
+    }
+  }
+
   private fun showChooserDialog(){
     val chooseFolder = context?.getString(R.string.folder_chooser_choose_folder) ?: "Choose folder"
     val choose = context?.getString(R.string.folder_chooser_choose) ?: "Choose"
@@ -176,9 +200,6 @@ class SettingsFragment : Fragment() {
         .withChosenListener { path, _ ->
           Log.d("path", "storagePath $path")
           setPath(path)
-          if(Settings.path != null && Settings.path != path && Settings.authenticated){
-            logout()
-          }
         }
         .build().show()
     }
@@ -198,13 +219,12 @@ class SettingsFragment : Fragment() {
   }
 
   private fun showGroupListDialog() {
-    Log.d("group", "showGroupListDialog")
     val groups: List<Group> = Tg.groupList
     val groupNameList = arrayOfNulls<String>(groups.size)
-    Log.d("groups.size", groups.size.toString())
     for((i, group) in groups.withIndex()) {
-      Log.d("group", group.title)
-      groupNameList[i] = group.title
+      groupNameList[i] = group.title + if(group.isChannel && !group.creator){
+        " (${resources.getString(R.string.text_group_readonly)})"
+      } else ""
     }
     if(groupNameList.isNotEmpty()) {
       MaterialAlertDialogBuilder(context).setTitle(R.string.text_select_group)
@@ -212,18 +232,22 @@ class SettingsFragment : Fragment() {
           dialog.dismiss()
           if(groups.size > which) {
             val group = groups[which]
-            if(
-              Settings.supergroupId != 0
-              && Settings.chatId != 0L
-              && group.superGroupId != Settings.supergroupId
-              && group.chatId != Settings.chatId
-            ) {
-              FileHelper.deleteByChatId(Settings.chatId)
-            }
-            Settings.supergroupId = group.superGroupId
+//            if(
+//              Settings.supergroupId != 0
+//              && Settings.chatId != 0L
+//              && group.superGroupId != Settings.supergroupId
+//              && group.chatId != Settings.chatId
+//            ) {
+//              FileHelper.deleteByChatId(Settings.chatId)
+//            }
+            Settings.groupId = group.groupId
             Settings.chatId = group.chatId
             Settings.title = group.title
             Settings.isChannel = group.isChannel
+            Settings.canSend = group.creator || !group.isChannel
+            if(!Settings.canSend){
+              toggleUploadMissing(isChecked = false, isUser = false)
+            }
             Settings.save()
             group.title?.also { groupNameTextView?.text = it }
           }
@@ -260,7 +284,7 @@ class SettingsFragment : Fragment() {
     if(Settings.path == null && !canBeSynced) {
       canBeSynced = false
       msg = R.string.text_settings_folder_not_set
-    } else if(Settings.chatId == 0L || Settings.supergroupId == 0) {
+    } else if(Settings.chatId == 0L || Settings.groupId == 0) {
       canBeSynced = false
       msg = R.string.text_settings_not_set_group
     }
@@ -288,7 +312,6 @@ class SettingsFragment : Fragment() {
   }
 
   private fun toggleDeleteUploaded(isChecked: Boolean, isUser: Boolean) {
-    deleteUploaded = isChecked
     if(!isUser) {
       switchDeleteUploaded?.isChecked = isChecked
     }
@@ -299,7 +322,7 @@ class SettingsFragment : Fragment() {
       imageViewDelete?.setImageResource(R.drawable.ic_not_delete)
       textViewDeleteUploadedCurrent?.setText(R.string.text_settings_will_not_be_deleted)
     }
-    if(downloadMissing && isChecked) {
+    if(Settings.downloadMissing && isChecked) {
       toggleDownloadMissing(isChecked = false, isUser = false)
     }
     Settings.deleteUploaded = isChecked
@@ -307,11 +330,10 @@ class SettingsFragment : Fragment() {
   }
 
   private fun toggleDownloadMissing(isChecked: Boolean, isUser: Boolean) {
-    downloadMissing = isChecked
     if(!isUser) {
       switchDownloadMissing?.isChecked = isChecked
     }
-    if(isChecked && deleteUploaded) {
+    if(isChecked && Settings.deleteUploaded) {
       toggleDeleteUploaded(isChecked = false, isUser = false)
     }
     Settings.downloadMissing = isChecked
@@ -323,7 +345,6 @@ class SettingsFragment : Fragment() {
   }
 
   private fun toggleUploadMissing(isChecked: Boolean, isUser: Boolean) {
-    uploadMissing = isChecked
     if(!isUser) {
       switchUploadMissing?.isChecked = isChecked
     }
@@ -333,7 +354,7 @@ class SettingsFragment : Fragment() {
       isUser = false
     )
     Settings.save()
-    if(uploadMissing) {
+    if(Settings.uploadMissing) {
       textViewUploadMissingCurrent?.setText(R.string.text_settings_upload_missing)
     } else {
       textViewUploadMissingCurrent?.setText(R.string.text_settings_not_upload_missing)
@@ -347,6 +368,7 @@ class SettingsFragment : Fragment() {
     activity?.runOnUiThread {
       progressBar?.visibility = View.GONE
       buttonLogin?.visibility = View.VISIBLE
+
       if(logged) {
         buttonLogin?.setText(R.string.button_settings_logout)
         buttonLogin?.setTextColor(resources.getColor(R.color.colorAccent))
@@ -355,11 +377,11 @@ class SettingsFragment : Fragment() {
         buttonLogin?.setText(R.string.button_settings_login)
         buttonLogin?.setTextColor(resources.getColor(R.color.colorPrimary))
         val chatId: Long = Settings.chatId
-        if(chatId != 0L) {
-          FileHelper.deleteByChatId(chatId)
-        }
+//        if(chatId != 0L) {
+//          FileHelper.deleteByChatId(chatId)
+//        }
         Settings.authenticated = false
-        Settings.supergroupId = 0
+        Settings.groupId = 0
         Settings.chatId = 0
         Settings.title = null
         switchSync?.isChecked = false
@@ -378,10 +400,16 @@ class SettingsFragment : Fragment() {
   private fun setPath(path: String) {
       val storagePath = Fs.externalStoragePath
       var relativePath: String? = null
-      if(storagePath != null && path.matches("$storagePath.+".toRegex(RegexOption.DOT_MATCHES_ALL))) {
+      if(
+        storagePath != null
+        && path.matches("""${Regex.escape(storagePath)}.+""".toRegex(RegexOption.DOT_MATCHES_ALL))
+      ) {
         relativePath = path.replace("$storagePath/", "")
       }
       if(relativePath != null) {
+        if(!Settings.path.isNullOrBlank() && Settings.path != relativePath && Settings.authenticated){
+          logout()
+        }
         Settings.path = relativePath
         Settings.save()
         syncDirPath = relativePath

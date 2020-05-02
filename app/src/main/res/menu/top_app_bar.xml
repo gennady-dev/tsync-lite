@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/appBarMenu">
+
+    <item
+        android:id="@+id/syncActionButton"
+        android:icon="@drawable/ic_sync_white"
+        android:title="@string/button_ok"
+        android:contentDescription="@string/button_ok"
+        app:showAsAction="ifRoom" />
+
+</menu>

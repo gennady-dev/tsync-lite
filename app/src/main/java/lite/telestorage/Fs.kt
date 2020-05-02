@@ -37,8 +37,8 @@ object Fs {
   }
 
   fun getRelPath(absPath: String): String? {
-    return Fs.syncDirAbsPath?.let {
-      if(absPath.matches("$it.+".toRegex(RegexOption.DOT_MATCHES_ALL))) absPath.replace("$it/", "")
+    return syncDirAbsPath?.let {
+      if(absPath.matches("""${Regex.escape(it)}.+""".toRegex(RegexOption.DOT_MATCHES_ALL))) absPath.replace("$it/", "")
       else null
     }
   }
@@ -117,9 +117,11 @@ object Fs {
           if(file.isDirectory) {
             scanPath(file.absolutePath)
           } else {
-            file.absolutePath.also {
-              Data.absPathList.add(it)
-              getRelPath(it)?.also { p -> Data.pathMap[p] = it }
+            if(!file.isHidden){
+              file.absolutePath.also {
+                Data.absPathList.add(it)
+                getRelPath(it)?.also { p -> Data.pathMap[p] = it }
+              }
             }
           }
         }

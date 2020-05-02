@@ -3,9 +3,8 @@ package lite.telestorage
 
 import android.content.Context
 import android.util.Log
-import lite.telestorage.kt.Constants.FOLDER_ICON
-import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.kt.models.FileData
+import lite.telestorage.Constants.FOLDER_ICON
+import lite.telestorage.models.FileData
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
 
@@ -64,9 +63,13 @@ class FileUpdate internal constructor() {
     localPath?.also {
       if(it.matches("${Constants.tdLibPath}.+".toRegex(RegexOption.DOT_MATCHES_ALL))){
         download = true
-      } else if(it.matches("${Fs.syncDirAbsPath}.+".toRegex(RegexOption.DOT_MATCHES_ALL))){
-        upload = true
-        filePath = it.replace("${Fs.syncDirAbsPath}/", "")
+      } else {
+        Fs.syncDirAbsPath?.also { syncDir ->
+          if(it.matches("""${Regex.escape(syncDir)}.+""".toRegex(RegexOption.DOT_MATCHES_ALL))) {
+            upload = true
+            filePath = it.replace("${Fs.syncDirAbsPath}/", "")
+          }
+        }
       }
     }
     val test = null
@@ -901,14 +904,14 @@ class FileUpdate internal constructor() {
     if(Sync.updateMap.isNotEmpty()) {
       for(file in Sync.updateMap.values) {
         fileData = file
-        addFile()
+//        addFile()
       }
       Sync.updateMap.clear()
     }
     if(Sync.fileByPathMap.isNotEmpty()) {
       for(file in Sync.fileByPathMap.values) {
         fileData = file
-        addFile()
+//        addFile()
       }
       Sync.fileByPathMap.clear()
     }
@@ -938,9 +941,9 @@ class FileUpdate internal constructor() {
 //    }
   }
 
-  fun updateFile() {
-    fileData?.let { FileHelper.updateFile(it) }
-  }
+//  fun updateFile() {
+//    fileData?.let { FileHelper.updateFile(it) }
+//  }
 
   companion object {
     fun getPathFromCaption(caption: String): String? {

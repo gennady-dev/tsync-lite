@@ -1,7 +1,7 @@
 package lite.telestorage
 
 import android.util.Log
-import lite.telestorage.kt.models.FileData
+import lite.telestorage.models.FileData
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
 import java.util.Timer

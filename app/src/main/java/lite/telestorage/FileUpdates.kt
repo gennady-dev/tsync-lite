@@ -1,8 +1,8 @@
 package lite.telestorage
 
 import android.util.Log
-import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.kt.models.FileData
+//import lite.telestorage.kt.database.FileHelper
+import lite.telestorage.models.FileData
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
 import java.io.IOException
@@ -174,20 +174,15 @@ object FileUpdates {
                 Messages.getMessages()
               }
             }
+            val debug = true
           }
         } else {
           if(!current.uploaded){
-            if(Settings.uploadMissing) uploadFile(current)
-            else {
-              Data.dataTransferInProgress = 0
-              nextDataTransfer()
-            }
+            if(Settings.uploadMissing) Tg.uploadFile(current)
+            else nextDataTransfer()
           } else if(!current.downloaded) {
-            if(Settings.downloadMissing) downloadFile(current)
-            else {
-              Data.dataTransferInProgress = 0
-              nextDataTransfer()
-            }
+            if(Settings.downloadMissing) Tg.downloadFile(current)
+            else nextDataTransfer()
           }
         }
       }
@@ -203,25 +198,16 @@ object FileUpdates {
       Tg.downloadFile(file)
     } else {
       file.downloaded = true
-      FileHelper.updateFile(file)
+//      FileHelper.updateFile(file)
       nextDataTransfer()
     }
   }
 
   fun syncAll(){
-    //TODO
-    // удалить дубликаты из суммарного списка
-    Data.remoteFileList
-    Data.remoteFileList
     Data.deleteMsgDuplicates()
-    Data.remoteFileList
-    Data.remoteFileList
+
     val remotePathMap = Data.remoteFileList.groupBy { it.path }
     val remotePathList = remotePathMap.map { it.key }
-
-//    Data.deleteDbDuplicates()
-//    val dbPathMap: Map<String?, List<FileData>> = Data.dbFileList.groupBy { it.path }
-//    val dbPathList = dbPathMap.map { it.key }
 
     val localPathMap = Data.localFileList.associateBy { it.path }
     val localPathList = localPathMap.map { it.key }
@@ -271,6 +257,8 @@ object FileUpdates {
         if(Settings.uploadMissing) Data.fileQueue.add(local)
       }
     }
+
+    Data.fileQueue.sortBy { it.lastModified }
 
     val debug = null
     Data.remoteFileList.clear()

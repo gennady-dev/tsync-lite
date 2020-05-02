@@ -1,7 +1,4 @@
-package lite.telestorage.kt.models
-
-import org.drinkless.td.libcore.telegram.TdApi
-import java.util.UUID
+package lite.telestorage.models
 
 class FileData() {
 

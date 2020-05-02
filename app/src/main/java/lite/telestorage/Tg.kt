@@ -1,16 +1,14 @@
 package lite.telestorage
 
 import android.os.Build
-import android.text.TextUtils
 import android.util.Log
 
-import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.kt.models.FileData
+//import lite.telestorage.kt.database.FileHelper
+import lite.telestorage.models.FileData
 import org.drinkless.td.libcore.telegram.Client
 import org.drinkless.td.libcore.telegram.Client.ResultHandler
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
-import java.io.IOException
 import java.util.NavigableSet
 import java.util.TreeSet
 import java.util.Arrays
@@ -61,6 +59,7 @@ object Tg {
 
   fun logout() {
     client?.send(TdApi.LogOut(), updateHandler)
+    client = null
   }
 
   private fun onAuthorizationStateUpdated(state: TdApi.AuthorizationState?) {
@@ -163,6 +162,7 @@ object Tg {
   }
 
   fun sendPhone(phone: String) {
+    if(client == null) client = Client.create(updateHandler, UpdateExceptionHandler(), DefaultExceptionHandler())
     client?.send(TdApi.SetAuthenticationPhoneNumber(phone, null), authorizationRequestHandler)
   }
 
@@ -175,6 +175,8 @@ object Tg {
       if(file.fileId != 0) {
         Data.dataTransferInProgress = Date().time
         client?.send(TdApi.DownloadFile(file.fileId, 32, 0, 0, true), updateHandler)
+      } else {
+        FileUpdates.nextDataTransfer()
       }
     }
   }
@@ -182,13 +184,26 @@ object Tg {
   fun uploadFile(file: FileData) {
     val chatId = Settings.chatId
     if(Data.dataTransferInProgress == 0L) {
-      Data.dataTransferInProgress = Date().time
       val mimeType: String? = file.mimeType
       if(
         mimeType != null
-        && !mimeType.matches("(?i)image/gif".toRegex())
-        && !mimeType.matches("(?i)image/webp".toRegex())
-      ) sendDocument(file)
+        && !mimeType.matches("""image/gif""".toRegex(RegexOption.IGNORE_CASE))
+        && !mimeType.matches("""image/webp""".toRegex(RegexOption.IGNORE_CASE))
+      ) {
+        Data.dataTransferInProgress = Date().time
+        when {
+          mimeType.matches(".*video.*".toRegex(RegexOption.DOT_MATCHES_ALL)) -> {
+            sendVideo(file)
+          }
+          mimeType.matches(".*audio.*".toRegex(RegexOption.DOT_MATCHES_ALL)) -> {
+            sendAudio(file)
+          }
+          else -> sendDocument(file)
+        }
+      }
+      else {
+        FileUpdates.nextDataTransfer()
+      }
 //      if(Settings.uploadAsMedia) {
 //        val mimeType: String? = file.mimeType
 //        if(mimeType != null) {
@@ -226,13 +241,18 @@ object Tg {
     val relativePath: String? = fileData.path
     val absPath: String? = relativePath?.let { Fs.getAbsPath(it) }
     val file = absPath?.let { File(it) }
-    if(Settings.chatId != 0L) {
-      if(file != null && file.exists() && file.isFile && file.length() > 0) {
-        val document: TdApi.InputMessageContent = TdApi.InputMessageDocument(
-          TdApi.InputFileLocal(absPath), null,
-          TdApi.FormattedText(getCaption(relativePath), null)
-        )
-        client?.send(TdApi.SendMessage(Settings.chatId, 0, null, null, document), updateHandler)
+    if(
+      Settings.chatId != 0L
+      && file != null
+      && file.exists()
+      && file.isFile
+      && file.length() > 0
+    ) {
+      val document: TdApi.InputMessageContent = TdApi.InputMessageDocument(
+        TdApi.InputFileLocal(absPath), null,
+        TdApi.FormattedText(getCaption(relativePath), null)
+      )
+      client?.send(TdApi.SendMessage(Settings.chatId, 0, null, null, document), updateHandler)
 //        if(fileData.messageId == 0L) {
 //          client?.send(TdApi.SendMessage(Settings.chatId, 0, null, null, document), updateHandler)
 //        } else {
@@ -242,19 +262,17 @@ object Tg {
 //            ), updateHandler
 //          )
 //        }
-      } else {
-        Data.dataTransferInProgress = 0
-        FileUpdates.nextDataTransfer()
-      }
+    } else {
+      Data.dataTransferInProgress = 0
+      FileUpdates.nextDataTransfer()
     }
   }
 
   private fun sendVideo(fileData: FileData) {
     val relativePath: String? = fileData.path
     val absPath: String? = relativePath?.let { Fs.getAbsPath(it) }
-    val f = absPath?.let { java.io.File(it) }
-    if(Settings.chatId != 0L) {
-      if(f != null && f.exists() && f.isFile && f.length() > 0) {
+    val f = absPath?.let { File(it) }
+    if(Settings.chatId != 0L && f != null && f.exists() && f.isFile && f.length() > 0) {
         val video: TdApi.InputMessageContent = TdApi.InputMessageVideo(
           TdApi.InputFileLocal(absPath),
           null,
@@ -276,30 +294,28 @@ object Tg {
 //          )
 //        }
       } else {
-        FileHelper.delete(fileData)
+//        FileHelper.delete(fileData)
         Data.dataTransferInProgress = 0
         FileUpdates.nextDataTransfer()
       }
-    }
   }
 
   private fun sendAudio(fileData: FileData) {
     val relativePath: String? = fileData.path
     val absPath: String? = relativePath?.let { Fs.getAbsPath(it) }
-    val f = absPath?.let { java.io.File(it) }
-    if(Settings.chatId != 0L) {
-      if(f != null && f.exists() && f.isFile && f.length() > 0) {
-        val audio: TdApi.InputMessageContent = TdApi.InputMessageAudio(
-          TdApi.InputFileLocal(absPath),
-          null,
-          0,
-          null,
-          null, TdApi.FormattedText(getCaption(relativePath), null)
-        )
-        client?.send(
-          TdApi.SendMessage(Settings.chatId, 0, null, null, audio),
-          updateHandler
-        )
+    val f = absPath?.let { File(it) }
+    if(Settings.chatId != 0L && f != null && f.exists() && f.isFile && f.length() > 0) {
+      val audio: TdApi.InputMessageContent = TdApi.InputMessageAudio(
+        TdApi.InputFileLocal(absPath),
+        null,
+        0,
+        null,
+        null, TdApi.FormattedText(getCaption(relativePath), null)
+      )
+      client?.send(
+        TdApi.SendMessage(Settings.chatId, 0, null, null, audio),
+        updateHandler
+      )
 //        if(fileData.messageId == 0L) {
 //          client?.send(
 //            TdApi.SendMessage(Settings.chatId, 0, null, null, audio),
@@ -311,11 +327,45 @@ object Tg {
 //            updateHandler
 //          )
 //        }
-      } else {
-        FileHelper.delete(fileData)
-        Data.dataTransferInProgress = 0
-        FileUpdates.nextDataTransfer()
-      }
+    } else {
+//        FileHelper.delete(fileData)
+      Data.dataTransferInProgress = 0
+      FileUpdates.nextDataTransfer()
+    }
+  }
+
+  private fun sendAnimation(fileData: FileData) {
+    val relativePath: String? = fileData.path
+    val absPath: String? = relativePath?.let { Fs.getAbsPath(it) }
+    val f = absPath?.let { File(it) }
+    if(
+      Settings.chatId != 0L
+      && f != null
+      && f.exists()
+      && f.isFile
+      && f.length() > 0
+    ) {
+      val animation: TdApi.InputMessageContent = TdApi.InputMessageAnimation(
+        TdApi.InputFileLocal(absPath),
+        null,
+        0,
+        0,
+        0,
+        TdApi.FormattedText(getCaption(relativePath), null)
+      )
+      client?.send(TdApi.SendMessage(Settings.chatId, 0, null, null, animation), updateHandler)
+//        if(fileData.messageId == 0L) {
+//          client?.send(TdApi.SendMessage(Settings.chatId, 0, null, null, photo), updateHandler)
+//        } else {
+//          client?.send(
+//            TdApi.EditMessageMedia(Settings.chatId, fileData.messageId, null, photo),
+//            updateHandler
+//          )
+//        }
+    } else {
+//        FileHelper.delete(fileData)
+      Data.dataTransferInProgress = 0
+      FileUpdates.nextDataTransfer()
     }
   }
 
@@ -338,7 +388,7 @@ object Tg {
 //          )
 //        }
       } else {
-        FileHelper.delete(fileData)
+//        FileHelper.delete(fileData)
         Data.dataTransferInProgress = 0
         FileUpdates.nextDataTransfer()
       }
@@ -458,7 +508,8 @@ object Tg {
           if((received as TdApi.UpdateConnectionState).state.constructor == TdApi.ConnectionStateReady.CONSTRUCTOR) {
             isConnected = true
             needUpdate?.also {
-              Sync.start(it)
+//              Sync.start(it)
+              Sync.start()
               needUpdate = null
             }
           } else {
@@ -483,7 +534,7 @@ object Tg {
           val updateSupergroup = received as TdApi.UpdateSupergroup
           superGroups[updateSupergroup.supergroup.id] = updateSupergroup.supergroup
           if(
-            updateSupergroup.supergroup.id == Settings.supergroupId
+            updateSupergroup.supergroup.id == Settings.groupId
             && (
               updateSupergroup.supergroup.status.constructor == TdApi.ChatMemberStatusBanned.CONSTRUCTOR
               || updateSupergroup.supergroup.status.constructor == TdApi.ChatMemberStatusCreator.CONSTRUCTOR
@@ -496,13 +547,13 @@ object Tg {
               syncStatus?.setGroupName(null)
               syncStatus?.setSyncSwitch(false)
             }
-            val chatId: Long = Settings?.chatId ?: 0
-            if(chatId != 0L) {
-              FileHelper.deleteByChatId(chatId)
-            }
+//            val chatId: Long = Settings?.chatId ?: 0
+//            if(chatId != 0L) {
+//              FileHelper.deleteByChatId(chatId)
+//            }
             Settings.enabled = false
             Settings.chatId = 0
-            Settings.supergroupId = 0
+            Settings.groupId = 0
             Settings.title = null
             Settings.save()
           }
@@ -747,14 +798,14 @@ object Tg {
                 && enteredGroupName != null
                 && enteredGroupName == chat.title
               ) {
-                if(
-                  Settings.chatId != 0L
-                  && Settings.supergroupId != 0
-                  && Settings.chatId != chat.id
-                  && Settings.supergroupId != supergroup.id
-                ) FileHelper.deleteByChatId(Settings.chatId)
+//                if(
+//                  Settings.chatId != 0L
+//                  && Settings.supergroupId != 0
+//                  && Settings.chatId != chat.id
+//                  && Settings.supergroupId != supergroup.id
+//                ) FileHelper.deleteByChatId(Settings.chatId)
 
-                Settings.supergroupId = supergroup.id
+                Settings.groupId = supergroup.id
                 Settings.chatId = chat.id
                 Settings.title = chat.title
                 Settings.isChannel = type.isChannel
@@ -774,26 +825,45 @@ object Tg {
 
   val groupList: List<Group>
     get() {
-      val groups: MutableList<Group> = ArrayList<Group>()
+      val groups: MutableList<Group> = ArrayList()
       for(chat in chats.values) {
-        Log.d("chat", chat.title)
-        for(superGroup in superGroups.values) {
-          if(
-            chat.type.constructor == TdApi.ChatTypeSupergroup.CONSTRUCTOR
-            && superGroup.status.constructor == TdApi.ChatMemberStatusCreator.CONSTRUCTOR
-          ) {
+        if(chat.id != 777000L){
+          val group = Group()
+          if(chat.type.constructor == TdApi.ChatTypeSupergroup.CONSTRUCTOR) {
             val type = chat.type as TdApi.ChatTypeSupergroup
-            val status = superGroup.status as TdApi.ChatMemberStatusCreator
-            if(type.supergroupId == superGroup.id && status.isMember) {
-              val g = Group()
-              g.superGroupId = superGroup.id
-              g.chatId = chat.id
-              g.title = chat.title
-              Log.d("group", chat.title)
-              g.date = superGroup.date.toLong()
-              g.isChannel = type.isChannel
-              groups.add(g)
+            superGroups.values.find { it.id == type.supergroupId }?.also {
+              group.groupId = it.id
+              group.date = it.date.toLong()
+              group.isChannel = type.isChannel
+              if(it.status.constructor == TdApi.ChatMemberStatusCreator.CONSTRUCTOR) {
+                group.creator = true
+              }
+              if(
+                it.status.constructor == TdApi.ChatMemberStatusAdministrator.CONSTRUCTOR
+                || it.status.constructor == TdApi.ChatMemberStatusMember.CONSTRUCTOR
+              ) {
+                group.member = true
+              }
             }
+          } else if(chat.type.constructor == TdApi.ChatTypeBasicGroup.CONSTRUCTOR){
+            val type = chat.type as TdApi.ChatTypeBasicGroup
+            basicGroups.values.find { it.id == type.basicGroupId }?.also {
+              group.groupId = it.id
+              if(it.status.constructor == TdApi.ChatMemberStatusCreator.CONSTRUCTOR) {
+                group.creator = true
+              }
+              if(
+                it.status.constructor == TdApi.ChatMemberStatusAdministrator.CONSTRUCTOR
+                || it.status.constructor == TdApi.ChatMemberStatusMember.CONSTRUCTOR
+              ) {
+                group.member = true
+              }
+            }
+          }
+          group.chatId = chat.id
+          group.title = chat.title
+          if(group.member || group.creator){
+            groups.add(group)
           }
         }
       }

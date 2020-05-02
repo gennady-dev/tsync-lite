@@ -2,7 +2,7 @@ package lite.telestorage
 
 
 import android.util.Log
-import lite.telestorage.kt.database.FileHelper
+//import lite.telestorage.kt.database.FileHelper
 import org.drinkless.td.libcore.telegram.TdApi
 import org.drinkless.td.libcore.telegram.TdApi.GetChatHistory
 import java.util.*

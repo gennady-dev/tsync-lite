@@ -1,7 +1,7 @@
 package lite.telestorage
 
-import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.kt.models.FileData
+//import lite.telestorage.kt.database.FileHelper
+import lite.telestorage.models.FileData
 import java.io.File
 import java.util.Date
 import kotlin.concurrent.withLock
@@ -28,12 +28,15 @@ object Sync {
       && Settings.enabled
       && Settings.path != null
       && Settings.chatId != 0L
-      && Settings.supergroupId != 0
+      && Settings.groupId != 0
 
   fun start(type: Type = Type.ALL) {
 
     if(ready && Data.inProgress == 0L) {
       if(type == Type.ALL){
+        Data.deletedMsgIds.clear()
+        Data.remoteFileList.clear()
+        Data.localFileList.clear()
         syncFiles()
         Messages.getMessages()
       } else if(type == Type.LOCAL){
@@ -84,14 +87,14 @@ object Sync {
 //  }📁📁
 
 
-  private fun clearFileDb() {
-    if(!isFileDbCleared) {
-      if(Settings.chatId != 0L) {
-        FileHelper.leaveByChatId(Settings.chatId)
-      }
-      isFileDbCleared = true
-    }
-  }
+//  private fun clearFileDb() {
+//    if(!isFileDbCleared) {
+//      if(Settings.chatId != 0L) {
+//        FileHelper.leaveByChatId(Settings.chatId)
+//      }
+//      isFileDbCleared = true
+//    }
+//  }
 
   fun updateDataTransferProgressStatus() {
     val currentTime = Date().time

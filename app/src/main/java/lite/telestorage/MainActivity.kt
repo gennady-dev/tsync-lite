@@ -10,8 +10,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
-import lite.telestorage.kt.services.BackgroundJobManagerImpl
-import lite.telestorage.kt.services.StartService
+import lite.telestorage.services.BackgroundJobManagerImpl
+import lite.telestorage.services.StartService
 
 
 class MainActivity : AppCompatActivity() {
@@ -28,8 +28,10 @@ class MainActivity : AppCompatActivity() {
 
     //TODO
     //SQLiteDatabase.loadLibs(this);
-    (findViewById<View>(R.id.action_bar) as Toolbar)
-      .setTitleTextColor(Color.parseColor(getString(R.color.colorWhite)))
+//    (findViewById<View>(R.id.action_bar) as Toolbar)
+//      .setTitleTextColor(Color.parseColor(getString(R.color.colorWhite)))
+////    supportActionBar?.hide()
+    setSupportActionBar(findViewById(R.id.topAppBar))
 
     ContextHolder.ctx(this)
 

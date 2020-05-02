@@ -10,10 +10,7 @@
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#DBE2E6"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        android:padding="8dp"
-        >
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <include layout="@layout/settings" />
 

@@ -5,8 +5,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-import lite.telestorage.kt.ContextHolder
-import lite.telestorage.kt.Tg
+import lite.telestorage.ContextHolder
+import lite.telestorage.Tg
 import kotlin.concurrent.thread
 
 

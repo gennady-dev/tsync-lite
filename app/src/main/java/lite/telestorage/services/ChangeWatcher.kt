@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
-import lite.telestorage.kt.*
+import lite.telestorage.*
 import java.util.*
 
 
@@ -30,7 +30,8 @@ class ChangeWatcher(context: Context, params: WorkerParameters) : Worker(context
         var type = Type.LOCAL
         if(Data.dbFileList.isEmpty()) type = Type.ALL
         if(Tg.isConnected) {
-          Sync.start(type)
+//          Sync.start(type)
+          Sync.start()
         } else {
           synchronized(Tg){
             Tg.needUpdate.also {

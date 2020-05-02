@@ -1,7 +1,7 @@
 package lite.telestorage
 
 import android.util.Log
-import lite.telestorage.kt.models.FileData
+import lite.telestorage.models.FileData
 import org.drinkless.td.libcore.telegram.TdApi
 
 class Message() {
@@ -150,8 +150,10 @@ class Message() {
 //    path = content.caption?.text?.let { getPathFromCaption(it) }
     content.animation?.animation?.also { setFromTdApiFile(it) }
     content.animation?.also {
-      if(!it.fileName.isNullOrBlank()) fileName = it.fileName.replace(".gif", ".mp4", ignoreCase = true)
-      if(!it.mimeType.isNullOrBlank()) mimeType = "video/mp4"
+      if(!it.fileName.isNullOrBlank()) fileName = it.fileName
+      if(!it.mimeType.isNullOrBlank()) mimeType = it.mimeType
+//      if(!it.fileName.isNullOrBlank()) fileName = it.fileName.replace(".gif", ".mp4", ignoreCase = true)
+//      if(!it.mimeType.isNullOrBlank()) mimeType = "video/mp4"
     }
   }
 
