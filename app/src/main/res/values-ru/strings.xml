@@ -39,7 +39,15 @@
 
     <string name="text_settings_sync_enabled">Синхронизация включена</string>
     <string name="text_settings_sync_disabled">Синхронизация выключена</string>
+    <string name="text_settings_start_sync">Синхронизация запущена</string>
+    <string name="text_settings_stop_sync">Отправлен запрос на остановку синхронизации</string>
     <string name="text_settings_sync_desc">Статус синхронизации</string>
+    <string name="text_settings_sync_button">Старт/стоп синхронизации</string>
+
+    <string name="button_settings">Настройки</string>
+    <string name="button_settings_desc">Изменение конфигурации</string>
+    <string name="button_help">Помощь</string>
+    <string name="button_help_desc">Описание</string>
 
     <string name="text_settings_delete_uploaded_title">Удалять выгруженные</string>
     <string name="text_settings_will_be_deleted">Локальные файлы будут удалены после выгрузки</string>
@@ -52,6 +60,7 @@
     <string name="text_settings_upload_missing_image">Выгружать отсутствующие</string>
     <string name="text_settings_not_upload_missing">Отсутствующие файлы не будут выгружаться</string>
     <string name="text_settings_upload_missing">Отсутствующие в Телеграме файлы будут выгружаться</string>
+    <string name="text_settings_upload_not_permitted">У вас нет прав для выгрузки файлов в этот канал</string>
 
     <string name="text_settings_default_group_name_title">Имя группы</string>
     <string name="text_settings_default_group_name_hint">укажите имя группы</string>
@@ -61,6 +70,13 @@
     <string name="folder_chooser_choose_folder">Выберите директорию</string>
     <string name="folder_chooser_choose">Выбрать</string>
     <string name="folder_chooser_cancel">Отмена</string>
+
+    <string name="help_auth_title">Авторизация</string>
+    <string name="help_auth_desc">Для работы приложения требуется зарегистрированный аккаунт в Телеграме.\nПри авторизации вводится номер телефона в международном формате, например, +79998887766.\nЕсли все в порядке с соединением, Телеграм вышлет код подтверждения, который и нужно ввести в появившемся диалоговом окне.</string>
+    <string name="help_dir_title">Выбор директории</string>
+    <string name="help_dir_desc">Выберите директорию, с которой необходимо синхронизировать данные. Очевидно, что если не будет выбрана директория, приложение не сможет работать. Не поддерживается работа с внешними картами памяти.</string>
+    <string name="help_group_title">Настройка группы/канала</string>
+    <string name="help_group_desc">Будьте внимательны, если выбираете группу/канал, к которой имеют доступ кто-то кроме вас, чтоб в выбранной директории не хранились файлы с конфиденциальной информацией!\n\nФайлы в выбранной директории будут синхронизироваться с выбранной группой/каналом. Возможно выбрать как существующие группы (они уже должны быть добавлены в аккаунте в Телеграме), так и создать новую.\n\nПри создании по умолчанию создается новый приватный канал, это означает, что доступ к этому каналу будет только у приложения (и у аккаунта, через который приложение авторизовано). В дальнейшем через Телеграм-клиент возможно изменить настройки созданного канала.\n\nЕсли выбран канал, в котором ваш аккаунт не создатель и не администратор, то приложение сможет только загружать файлы из этого канала, без возможности выгрузки.</string>
 
     <string-array name="group_list">
         <item>Создать новый канал</item>

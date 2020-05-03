@@ -19,6 +19,7 @@ object Data {
   const val localSyncPeriod = 60000L
   var lastLocalSync: Long = 0
   private var progressTimer: Timer? = null
+  var stop = false
 
   var inProgress: Long = 0
     set(value) {

@@ -93,10 +93,10 @@ class FileData() {
         updated = true
       }
     }
+  var type: FileType? = null
   var updated: Boolean = false
-
-  var upload = false
-  var download = false
+  var uploading = false
+  var downloading = false
 
   val lastDate: Long
     get() = if(editDate == 0L) date else editDate

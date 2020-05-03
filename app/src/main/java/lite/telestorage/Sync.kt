@@ -55,6 +55,10 @@ object Sync {
     }
   }
 
+  fun stop(){
+    if(!Data.stop) Data.stop = true
+  }
+
   fun syncFiles() {
     Data.lock.withLock {
       if(Settings.path != null) {

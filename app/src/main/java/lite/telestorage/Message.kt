@@ -2,6 +2,7 @@ package lite.telestorage
 
 import android.util.Log
 import lite.telestorage.models.FileData
+import lite.telestorage.models.FileType
 import org.drinkless.td.libcore.telegram.TdApi
 
 class Message() {
@@ -22,26 +23,28 @@ class Message() {
   var date: Long = 0
   var editDate: Long = 0
   var size: Int = 0
+  var type: FileType? = null
   var upload = false
   var download = false
 
   val fileData: FileData?
     get() = FileData().also {
-        it.path = path
-        it.chatId = chatId
-        it.messageId = messageId
-        it.fileId = fileId
-        it.mimeType = mimeType
-        it.fileUniqueId = fileUniqueId
-        it.name = fileName
-        it.downloaded = downloaded
-        it.uploaded = uploaded
-        it.date = date
-        it.editDate = editDate
-        it.size = size
-        it.upload = upload
-        it.download = download
-      }
+      it.path = path
+      it.chatId = chatId
+      it.messageId = messageId
+      it.fileId = fileId
+      it.mimeType = mimeType
+      it.fileUniqueId = fileUniqueId
+      it.name = fileName
+      it.downloaded = downloaded
+      it.uploaded = uploaded
+      it.date = date
+      it.editDate = editDate
+      it.size = size
+      it.type = type
+      it.uploading = upload
+      it.downloading = download
+    }
 
   internal constructor(update: TdApi.UpdateMessageSendSucceeded) : this() {
     update.message?.also {
@@ -95,42 +98,46 @@ class Message() {
   }
 
   private fun setFromDocument(content: TdApi.MessageDocument){
-    caption = content.caption?.text
-    path = caption?.trim()
-//    path = content.caption?.text?.let { getPathFromCaption(it) }
+    type = FileType.DOCUMENT
+    caption = content.caption?.text?.let { if(it.isBlank()) null else it.trim() }
+//    path = caption?.trim()
+    path = caption?.let { getCaptionPath(it) }
     content.document?.document?.also { setFromTdApiFile(it) }
     content.document?.also {
       if(!it.fileName.isNullOrBlank()) fileName = it.fileName
       if(!it.mimeType.isNullOrBlank()) mimeType = it.mimeType
     }
+    setPathByFileName()
   }
 
   private fun setFromVideo(content: TdApi.MessageVideo){
-    caption = content.caption?.text
-    path = caption?.trim()
-//    path = content.caption?.text?.let { getPathFromCaption(it) }
+    type = FileType.VIDEO
+    caption = content.caption?.text?.let { if(it.isBlank()) null else it.trim() }
+    path = caption?.let { getCaptionPath(it) }
     content.video?.video?.also { setFromTdApiFile(it) }
     content.video?.also {
       if(!it.fileName.isNullOrBlank()) fileName = it.fileName
       if(!it.mimeType.isNullOrBlank()) mimeType = it.mimeType
     }
+    setPathByFileName()
   }
 
   private fun setFromAudio(content: TdApi.MessageAudio){
-    caption = content.caption?.text
-    path = caption?.trim()
-//    path = content.caption?.text?.let { getPathFromCaption(it) }
+    type = FileType.AUDIO
+    caption = content.caption?.text?.let { if(it.isBlank()) null else it.trim() }
+    path = caption?.let { getCaptionPath(it) }
     content.audio?.audio?.also { setFromTdApiFile(it) }
     content.audio?.also {
       if(!it.fileName.isNullOrBlank()) fileName = it.fileName
       if(!it.mimeType.isNullOrBlank()) mimeType = it.mimeType
     }
+    setPathByFileName()
   }
 
   private fun setFromPhoto(content: TdApi.MessagePhoto){
-    caption = content.caption?.text
-    path = caption?.trim()
-//    path = content.caption?.text?.let { getPathFromCaption(it) }
+    type = FileType.PHOTO
+    caption = content.caption?.text?.let { if(it.isBlank()) null else it.trim() }
+    path = caption?.let { getCaptionPath(it) }
     content.photo?.sizes?.also {
       var height = 0
       var width = 0
@@ -142,12 +149,17 @@ class Message() {
         }
       }
     }
+
+    val pathFileName = path?.split("/")?.last()
+    if(!pathFileName.isNullOrBlank() && Fs.getMimeType(pathFileName) == null){
+      path = "$fileUniqueId.jpg"
+    }
   }
 
   private fun setFromAnimation(content: TdApi.MessageAnimation){
-    caption = content.caption?.text
-    path = caption?.trim()
-//    path = content.caption?.text?.let { getPathFromCaption(it) }
+    type = FileType.ANIMATION
+    caption = content.caption?.text?.let { if(it.isBlank()) null else it.trim() }
+    path = caption?.let { getCaptionPath(it) }
     content.animation?.animation?.also { setFromTdApiFile(it) }
     content.animation?.also {
       if(!it.fileName.isNullOrBlank()) fileName = it.fileName
@@ -155,9 +167,11 @@ class Message() {
 //      if(!it.fileName.isNullOrBlank()) fileName = it.fileName.replace(".gif", ".mp4", ignoreCase = true)
 //      if(!it.mimeType.isNullOrBlank()) mimeType = "video/mp4"
     }
+    setPathByFileName()
   }
 
   private fun setFromSticker(content: TdApi.MessageSticker){
+    type = FileType.STICKER
     content.sticker?.sticker?.also { setFromTdApiFile(it) }
     fileUniqueId?.also {
       fileName = "$it.webp"
@@ -175,51 +189,21 @@ class Message() {
     uploaded = update.uploaded
     localPath = update.localPath
     update.filePath.also { if(!it.isNullOrBlank()) path = it }
-    download = update.download
+    download = update.downloading
     downloaded = update.downloaded
-
-
-//    fileId = file.id
-//    size = file.size
-//
-//    file.remote?.also {
-//      if(!it.uniqueId.isNullOrBlank()) {
-//        fileUniqueId = it.uniqueId
-//      }
-//      if(!it.isUploadingActive && it.isUploadingCompleted) {
-//        uploaded = true
-//      }
-//    }
-//    file.local?.also { local ->
-//      localPath = local.path.let { if(it.isNullOrBlank()) null else it }
-//      localPath?.also {
-//        if(it.matches("${Fs.syncDirAbsPath}/.+".toRegex(RegexOption.DOT_MATCHES_ALL))){
-//          path = it.replace("${Fs.syncDirAbsPath}/", "")
-//          upload = true
-//        }
-//      }
-//      downloaded = !local.isDownloadingActive && local.isDownloadingCompleted
-//    }
   }
 
-  private fun getPathFromCaption(caption: String): String? {
-    return Regex("${Constants.FOLDER_ICON}[^\r\n\t]*", RegexOption.MULTILINE)
-      .find(caption)
-      ?.value
-      ?.replace(Constants.FOLDER_ICON, "")
+  private fun getCaptionPath(caption: String): String? {
+    return Regex("[^\r\n\t]*", RegexOption.MULTILINE).find(caption)?.value
   }
 
-  private fun log(){
-    Log.d("messageId", messageId.toString())
-    Log.d("chatId", chatId.toString())
-    Log.d("fileId", fileId.toString())
-    Log.d("fileUniqueId", fileUniqueId.toString())
-    Log.d("fileName", fileName.toString())
-    Log.d("path", path.toString())
-    Log.d("mimeType", mimeType.toString())
-    Log.d("localPath", localPath.toString())
-    Log.d("downloaded", downloaded.toString())
-    Log.d("uploaded", uploaded.toString())
+  private fun setPathByFileName() {
+    val pathFileName = path?.split("/")?.last()
+    if(pathFileName == null || pathFileName != fileName){
+      fileName.also {
+        if(!it.isNullOrBlank()) path = fileName
+      }
+    }
   }
 
 }

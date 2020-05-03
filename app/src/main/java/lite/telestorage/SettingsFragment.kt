@@ -1,6 +1,5 @@
 package lite.telestorage
 
-
 import com.obsez.android.lib.filechooser.ChooserDialog
 import android.os.Bundle
 import android.util.Log
@@ -8,16 +7,10 @@ import android.view.*
 import android.widget.*
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
-import kotlinx.android.synthetic.main.app_bar.*
-//import lite.telestorage.kt.database.FileHelper
-import kotlin.concurrent.thread
-
 
 class SettingsFragment : Fragment() {
 
-  private var fragmentLayoutInflater: LayoutInflater? = null
   private var buttonLogin: Button? = null
   private var progressBar: ProgressBar? = null
   private var imageViewSync: ImageView? = null
@@ -36,20 +29,13 @@ class SettingsFragment : Fragment() {
   private var textViewUploadMissingCurrent: TextView? = null
   private var switchUploadMissing: Switch? = null
   private var switchDownloadMissing: Switch? = null
-  private var syncActionButton: Menu? = null
-
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-  }
 
   override fun onCreateView(
     inflater: LayoutInflater,
     container: ViewGroup?,
     savedInstanceState: Bundle?
   ): View? {
-
-    fragmentLayoutInflater = inflater
-    val v = inflater.inflate(R.layout.fragment_settings, container, false)
+    val v = inflater.inflate(R.layout.settings, container, false)
 
     imageViewSync = v.findViewById(R.id.imageViewSyncEnabled)
     textViewSync = v.findViewById(R.id.textViewSyncState)
@@ -67,13 +53,6 @@ class SettingsFragment : Fragment() {
     groupNameTextView = v.findViewById(R.id.textViewSelectedGroupName)
     buttonEditGroup = v.findViewById(R.id.imageViewEditGroup)
     buttonEditPath = v.findViewById(R.id.imageViewEditFolder)
-//    syncActionButton = v.findViewById(R.id.syncActionButton)
-
-//    val topAppBar: Toolbar = v.findViewById(R.id.topAppBar)
-
-//    topAppBar.setOnMenuItemClickListener {
-//      Toast.makeText(context, "adddddd", Toast.LENGTH_SHORT).show()
-//    }
 
     buttonLogin?.setText(R.string.button_settings_login)
     buttonLogin?.visibility = View.GONE
@@ -125,21 +104,13 @@ class SettingsFragment : Fragment() {
     }
 
     switchUploadMissing?.setOnCheckedChangeListener { _, isChecked ->
-      toggleUploadMissing(isChecked, true)
+      if(Settings.canSend){
+        toggleUploadMissing(isChecked, true)
+      } else {
+        Toast.makeText(context, R.string.text_settings_upload_not_permitted, Toast.LENGTH_LONG).show()
+        toggleUploadMissing(isChecked = false, isUser = false)
+      }
     }
-
-//    syncActionButton?. .setOnMenuItemClickListener {
-////      thread(start = true, block = { Sync.start() })
-//      if(Data.inProgress == 0L){
-//        it.setIcon(R.drawable.ic_sync_stop_white)
-//        thread {
-//          Sync.start()
-//        }
-//      } else {
-//
-//      }
-//      true
-//    }
 
     buttonEditGroup?.setOnClickListener {
       if(Settings.authenticated) {
@@ -151,7 +122,6 @@ class SettingsFragment : Fragment() {
 
     buttonEditPath?.setOnClickListener {
       val storagePath: String? = Fs.externalStoragePath
-      Log.d("storagePath", "storagePath $storagePath")
       if(Settings.path != null){
         MaterialAlertDialogBuilder(context)
           .setTitle(R.string.text_settings_change_folder_warning)
@@ -160,26 +130,6 @@ class SettingsFragment : Fragment() {
       } else if(storagePath != null) showChooserDialog()
     }
     return v
-  }
-
-  override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-    inflater.inflate(R.menu.top_app_bar, menu)
-    super.onCreateOptionsMenu(menu, inflater)
-  }
-
-  override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
-    R.id.syncActionButton -> {
-      Log.d("syncAction", "clicked")
-      Toast.makeText(activity?.applicationContext, "adddddd", Toast.LENGTH_SHORT).show()
-      true
-    }
-    else -> {
-      Log.d("syncAction", "else")
-      Toast.makeText(activity?.applicationContext, "else menu", Toast.LENGTH_SHORT).show()
-      // If we got here, the user's action was not recognized.
-      // Invoke the superclass to handle it.
-      super.onOptionsItemSelected(item)
-    }
   }
 
   private fun showChooserDialog(){
@@ -260,7 +210,7 @@ class SettingsFragment : Fragment() {
   }
 
   private fun showCreateGroupDialog() {
-    val editTextLayout = fragmentLayoutInflater?.inflate(R.layout.edit_text_material, null) as LinearLayout
+    val editTextLayout = layoutInflater.inflate(R.layout.edit_text_material, null) as LinearLayout
     val inputEditText: TextInputEditText = editTextLayout.findViewById(R.id.text_input_edit_text)
     inputEditText.setText(R.string.text_settings_default_group_name_text)
     activity?.also {
@@ -353,11 +303,14 @@ class SettingsFragment : Fragment() {
       isChecked = false,
       isUser = false
     )
-    Settings.save()
-    if(Settings.uploadMissing) {
-      textViewUploadMissingCurrent?.setText(R.string.text_settings_upload_missing)
-    } else {
-      textViewUploadMissingCurrent?.setText(R.string.text_settings_not_upload_missing)
+    if(Settings.uploadMissing != isChecked) {
+      Settings.uploadMissing = isChecked
+      Settings.save()
+      if(Settings.uploadMissing) {
+        textViewUploadMissingCurrent?.setText(R.string.text_settings_upload_missing)
+      } else {
+        textViewUploadMissingCurrent?.setText(R.string.text_settings_not_upload_missing)
+      }
     }
   }
 
@@ -463,9 +416,11 @@ class SettingsFragment : Fragment() {
         if(status) {
           buttonLogin?.visibility = View.GONE
           progressBar?.visibility = View.VISIBLE
+          (activity as MainActivity).setSync(true)
         } else {
           progressBar?.visibility = View.GONE
           buttonLogin?.visibility = View.VISIBLE
+          (activity as MainActivity).setSync(false)
         }
       }
     }

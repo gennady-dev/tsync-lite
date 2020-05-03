@@ -8,7 +8,6 @@ import java.io.File
 import java.io.IOException
 import java.util.*
 import kotlin.concurrent.schedule
-import kotlin.concurrent.withLock
 
 object FileUpdates {
 
@@ -21,8 +20,7 @@ object FileUpdates {
     Data.current.also { current ->
       if(current != null){
         if(
-          file.upload
-          && file.uploaded
+          file.uploading
           && file.messageId != 0L
           && file.fileId != 0
           && file.chatId != 0L
@@ -30,19 +28,38 @@ object FileUpdates {
           && current.path == file.path
           && current.size == file.size
         ){
-          current.uploaded = true
-          current.chatId = file.chatId
-          current.fileId = file.fileId
-          current.messageId = file.messageId
-          current.fileUniqueId = file.fileUniqueId
-          current.date = file.date
-          current.editDate = file.editDate
-          Data.remoteFileList.add(current)
-          deleteUploaded(current)
-          Data.dataTransferInProgress = 0
-          nextDataTransfer()
+          if(file.uploaded){
+            current.uploaded = true
+            current.chatId = file.chatId
+            current.fileId = file.fileId
+            current.messageId = file.messageId
+            current.fileUniqueId = file.fileUniqueId
+            current.date = file.date
+            current.editDate = file.editDate
+            Data.remoteFileList.add(current)
+            deleteUploaded(current)
+            Data.dataTransferInProgress = 0
+            nextDataTransfer()
+          } else {
+            current.uploading = true
+            current.fileId = file.fileId
+            Data.dataTransferInProgress = Date().time
+          }
         }
       } else if(Data.dataTransferInProgress == 0L) nextDataTransfer()
+    }
+    if(Data.stop){
+      Data.current?.fileId?.also {
+        if(it != 0){
+          TdApi.CancelUploadFile(it)
+          Data.current = null
+        }
+      }
+      Data.current?.also {
+        TdApi.CancelUploadFile()
+        Data.current = null
+      }
+      nextDataTransfer()
     }
   }
 
@@ -60,51 +77,69 @@ object FileUpdates {
   fun downloadingUpdate(tgFile: TdApi.File){
     var next = false
     val update = FileUpdate(tgFile)
-    Data.current?.also { file ->
+    val current = Data.current
+    if(current != null){
       val fileId = update.fileId
       val fileUniqueId = update.fileUniqueId
-      val path = file.path
+      val path = current.path
       if(
-        update.download
-        && update.downloaded
+        update.downloading
         && fileId != 0
-        && file.fileId == fileId
+        && current.fileId == fileId
         && fileUniqueId != null
-        && file.fileUniqueId == fileUniqueId
+        && current.fileUniqueId == fileUniqueId
         && path != null
       ){
-        val downloadedFile = update.localPath?.let { File(it) }
-        val localFile = Fs.syncDirAbsPath?.let { File("${it}/${file.path}") }
-        if(downloadedFile?.exists() == true && localFile != null){
-          if(Fs.dirExist(path)){
-            try {
-              if(localFile.exists()) {
-                if(localFile.length() != downloadedFile.length()) localFile.delete()
-              }
-              if(!localFile.exists()) {
-                Fs.move(downloadedFile, localFile)
-              } else downloadedFile.delete()
-              file.downloaded = true
-              file.lastModified = localFile.lastModified()
-              file.size = localFile.length().toInt()
+        if(update.downloaded){
+          val downloadedFile = update.localPath?.let { File(it) }
+          val localFile = Fs.syncDirAbsPath?.let { File("${it}/${current.path}") }
+          if(downloadedFile?.exists() == true && localFile != null){
+            if(Fs.dirExist(path)){
+              try {
+                if(localFile.exists()) {
+                  if(localFile.length() != downloadedFile.length()) localFile.delete()
+                }
+                if(!localFile.exists()) {
+                  Fs.move(downloadedFile, localFile)
+                } else downloadedFile.delete()
+                current.downloaded = true
+                current.lastModified = localFile.lastModified()
+                current.size = localFile.length().toInt()
 //                FileHelper.updateFile(file)
 //                if(Data.dbFileList.find { f -> f == file } == null){
 //                  Data.dbFileList.add(file)
 //                }
 //                cur.updated = false
-              next = true
+                next = true
 //                Data.dbFileList.find { l -> l.path == path }?.also { Data.remoteFileList.remove(it) }
 //                Data.localFileList.find { l -> l.path == path }?.also { Data.localFileList.remove(it) }
 //                Data.dbFileList.add(cur)
 //                Data.localFileList.add(cur)
-              Data.dataTransferInProgress = 0
-            } catch(e: IOException) {
-              Log.d("update", "IOException $e")
+                Data.dataTransferInProgress = 0
+                nextDataTransfer()
+              } catch(e: IOException) {
+                Log.d("update", "IOException $e")
+              }
             }
           }
+        } else {
+          current.downloading = true
+          Data.dataTransferInProgress = Date().time
         }
       }
-      nextDataTransfer(next)
+    } else if(Data.dataTransferInProgress == 0L) nextDataTransfer(next)
+    if(Data.stop){
+      Data.current?.fileId?.also {
+        if(it != 0){
+          TdApi.CancelDownloadFile(it, false)
+          Data.current = null
+        }
+      }
+      Data.current?.also {
+        TdApi.CancelDownloadFile()
+        Data.current = null
+      }
+      nextDataTransfer()
     }
   }
 
@@ -137,7 +172,7 @@ object FileUpdates {
   }
 
   fun nextDataTransfer(next: Boolean = true) {
-    if(Sync.ready){
+    if(Sync.ready && !Data.stop){
       if(next) Data.current = Data.fileQueue.firstOrNull()?.also { Data.fileQueue.remove(it) }
       Data.current.also { current ->
         if(current == null) {
@@ -186,6 +221,11 @@ object FileUpdates {
           }
         }
       }
+    } else if(Data.stop){
+      Data.dataTransferInProgress = 0
+      Data.stop = false
+      Data.fileQueue.clear()
+      Data.current = null
     }
   }
 

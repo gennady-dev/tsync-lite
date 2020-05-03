@@ -11,6 +11,7 @@ object Constants {
   const val externalAppFilesPath = "Android/data/$packageName/files/external"
   const val tdLibPath = "/data/data/$packageName/tdlib"
   const val stickerDir = "sticker_dir"
+  const val animationDir = "animation_dir"
   const val updatePreferences = "${packageName}.update_preferences"
   const val FOLDER_ICON_UPDATED = "folder_icon_updated"
   const val tags = "$packageName.tags"

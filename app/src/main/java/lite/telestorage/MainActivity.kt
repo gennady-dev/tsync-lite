@@ -1,46 +1,76 @@
 package lite.telestorage
 
-//TODO
-//import net.sqlcipher.database.SQLiteDatabase;
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
-import android.view.View
+import android.util.Log
+import android.view.MenuItem
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
+import com.google.android.material.appbar.MaterialToolbar
 import lite.telestorage.services.BackgroundJobManagerImpl
 import lite.telestorage.services.StartService
-
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
-  var fragment: Fragment? = null
-  var fm: FragmentManager? = null
+  var syncActionButton: MenuItem? = null
 
   public override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    setContentView(R.layout.activity_main)
-    //TODO
-    //SQLiteDatabase.loadLibs(this);
+    setContentView(R.layout.main_activity)
 
-
-    //TODO
-    //SQLiteDatabase.loadLibs(this);
-//    (findViewById<View>(R.id.action_bar) as Toolbar)
-//      .setTitleTextColor(Color.parseColor(getString(R.color.colorWhite)))
-////    supportActionBar?.hide()
-    setSupportActionBar(findViewById(R.id.topAppBar))
+    val topAppBar: MaterialToolbar = findViewById(R.id.topAppBar)
 
     ContextHolder.ctx(this)
+    val settingsFragment = SettingsFragment()
+    val helpFragment = HelpFragment()
 
-    fm = supportFragmentManager
-    fragment = fm?.findFragmentById(R.id.fragment_container)
-    if(fragment == null) {
-      fragment = SettingsFragment()
-      fragment?.also { fm?.beginTransaction()?.add(R.id.fragment_container, it)?.commit() }
+    supportFragmentManager.beginTransaction()
+      .add(R.id.fragment_container, settingsFragment)
+      .add(R.id.fragment_container, helpFragment)
+      .hide(helpFragment)
+      .show(settingsFragment)
+      .commit()
+
+    syncActionButton = topAppBar.menu.findItem(R.id.syncActionButton)
+    topAppBar.setOnMenuItemClickListener { menuItem ->
+      when (menuItem.itemId) {
+        R.id.syncActionButton -> {
+          if(Data.inProgress == 0L) {
+            if(Sync.ready){
+              thread {
+                Sync.start()
+              }
+              Toast.makeText(applicationContext, R.string.text_settings_start_sync, Toast.LENGTH_SHORT).show()
+            }
+          } else {
+            thread {
+              Sync.stop()
+            }
+            Toast.makeText(applicationContext, R.string.text_settings_stop_sync, Toast.LENGTH_SHORT).show()
+          }
+          true
+        }
+        R.id.helpButton -> {
+          supportFragmentManager.beginTransaction()
+            .hide(settingsFragment)
+            .show(helpFragment)
+            .commit()
+          true
+        }
+        R.id.settingsButton -> {
+          supportFragmentManager.beginTransaction()
+            .hide(helpFragment)
+            .show(settingsFragment)
+            .commit()
+          true
+        }
+        else -> false
+      }
     }
+
     val jobManager = BackgroundJobManagerImpl(applicationContext)
     jobManager.scheduleContentObserverJob()
     jobManager.schedulePeriodicJob()
@@ -53,6 +83,18 @@ class MainActivity : AppCompatActivity() {
         .setAction("lite.telestorage.background.service")
         .setClass(this, StartService::class.java)
     )
+  }
+
+  fun setSync(status: Boolean) {
+    runOnUiThread {
+      syncActionButton?.also { btn ->
+        if(status){
+          btn.setIcon(R.drawable.ic_sync_stop_white)
+        } else {
+          btn.setIcon(R.drawable.ic_sync_white)
+        }
+      }
+    }
   }
 
 }

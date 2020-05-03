@@ -39,7 +39,15 @@
 
     <string name="text_settings_sync_enabled">Sync enabled</string>
     <string name="text_settings_sync_disabled">Sync disabled</string>
-    <string name="text_settings_sync_desc">Sync state image</string>
+    <string name="text_settings_start_sync">Sync started!</string>
+    <string name="text_settings_stop_sync">Stop request sent</string>
+    <string name="text_settings_sync_desc">Sync status</string>
+    <string name="text_settings_sync_button">Start/stop sync</string>
+
+    <string name="button_settings">Settings</string>
+    <string name="button_settings_desc">App configuration</string>
+    <string name="button_help">Help</string>
+    <string name="button_help_desc">About app</string>
 
     <string name="text_settings_delete_uploaded_title">Delete uploaded</string>
     <string name="text_settings_will_be_deleted">Files will be deleted after upload</string>
@@ -52,6 +60,7 @@
     <string name="text_settings_upload_missing_image">Upload missing</string>
     <string name="text_settings_not_upload_missing">Missing files won\'t be uploaded</string>
     <string name="text_settings_upload_missing">Missing files will be uploaded</string>
+    <string name="text_settings_upload_not_permitted">You don\'t have permissions to upload in current channel</string>
 
     <string name="text_settings_default_group_name_title">Group name</string>
     <string name="text_settings_default_group_name_hint">Enter group name</string>
@@ -61,6 +70,13 @@
     <string name="folder_chooser_choose_folder">Choose a folder</string>
     <string name="folder_chooser_choose">Choose</string>
     <string name="folder_chooser_cancel">Cancel</string>
+
+    <string name="help_auth_title">Title</string>
+    <string name="help_auth_desc">Desc</string>
+    <string name="help_dir_title">Title</string>
+    <string name="help_dir_desc">Desc</string>
+    <string name="help_group_title">Title</string>
+    <string name="help_group_desc">Desc</string>
 
     <string-array name="group_list">
         <item>Create new channel</item>

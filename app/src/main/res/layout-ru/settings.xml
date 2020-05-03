@@ -33,7 +33,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/text_settings_tg_state"
             android:textAllCaps="false"
-            android:textSize="24sp"
+            android:textSize="20sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/buttonLogin"
             app:layout_constraintStart_toEndOf="@+id/imageViewTgLogin"
@@ -90,7 +90,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/text_settings_sync_disabled"
             android:textAllCaps="false"
-            android:textSize="24sp"
+            android:textSize="20sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/switchSync"
             app:layout_constraintStart_toEndOf="@+id/imageViewSyncEnabled"
@@ -135,7 +135,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/text_settings_synced_folders"
             android:textAllCaps="false"
-            android:textSize="24sp"
+            android:textSize="20sp"
             app:layout_constraintEnd_toStartOf="@+id/imageViewEditFolder"
             app:layout_constraintStart_toEndOf="@+id/imageViewFolder"
             app:layout_constraintTop_toTopOf="parent" />
@@ -206,7 +206,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/text_settings_selected_group_title"
             android:textAllCaps="false"
-            android:textSize="24sp"
+            android:textSize="20sp"
             app:layout_constraintEnd_toStartOf="@+id/imageViewEditGroup"
             app:layout_constraintStart_toEndOf="@+id/imageViewCloud"
             app:layout_constraintTop_toTopOf="parent" />
@@ -265,7 +265,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/text_settings_delete_uploaded_title"
             android:textAllCaps="false"
-            android:textSize="24sp"
+            android:textSize="20sp"
             app:layout_constraintEnd_toStartOf="@+id/switchDeleteUploaded"
             app:layout_constraintStart_toEndOf="@+id/imageViewDelete"
             app:layout_constraintTop_toTopOf="parent" />
@@ -322,7 +322,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/text_settings_download_missing_title"
             android:textAllCaps="false"
-            android:textSize="24sp"
+            android:textSize="20sp"
             app:layout_constraintEnd_toStartOf="@+id/switchDownloadMissing"
             app:layout_constraintStart_toEndOf="@+id/imageViewDownloadMissing"
             app:layout_constraintTop_toTopOf="parent" />
@@ -378,7 +378,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/text_settings_upload_missing_title"
             android:textAllCaps="false"
-            android:textSize="24sp"
+            android:textSize="20sp"
             app:layout_constraintEnd_toStartOf="@+id/switchUploadMissing"
             app:layout_constraintStart_toEndOf="@+id/imageViewUploadMissing"
             app:layout_constraintTop_toTopOf="parent" />
