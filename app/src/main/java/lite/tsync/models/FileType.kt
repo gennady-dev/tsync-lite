@@ -1,4 +1,4 @@
-package lite.telestorage.models
+package lite.tsync.models
 
 enum class FileType {
   ANIMATION,

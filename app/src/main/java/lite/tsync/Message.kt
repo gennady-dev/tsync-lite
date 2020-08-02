@@ -1,8 +1,8 @@
-package lite.telestorage
+package lite.tsync
 
 import android.util.Log
-import lite.telestorage.models.FileData
-import lite.telestorage.models.FileType
+import lite.tsync.models.FileData
+import lite.tsync.models.FileType
 import org.drinkless.td.libcore.telegram.TdApi
 
 class Message() {

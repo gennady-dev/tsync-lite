@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Telestorage Lite</string>
+    <string name="app_name">TSync Lite</string>
     <string name="phone_title_label">Укажите номер телефона</string>
     <string name="text_settings_phone_hint">Телефон</string>
     <string name="phone_number_label">Номер телефона</string>

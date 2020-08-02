@@ -1,4 +1,4 @@
-package lite.telestorage
+package lite.tsync
 
 import android.os.Build.VERSION
 
@@ -7,7 +7,7 @@ object Constants {
   const val defaultGroupName = "Channel"
 //  const val FOLDER_ICON = "\uD83D\uDCC2"
   const val FOLDER_ICON = "\uD83D\uDCC1"
-  private const val packageName = "lite.telestorage"
+  private const val packageName = "lite.tsync"
   const val externalAppFilesPath = "Android/data/$packageName/files/external"
   const val tdLibPath = "/data/data/$packageName/tdlib"
   const val stickerDir = "sticker_dir"

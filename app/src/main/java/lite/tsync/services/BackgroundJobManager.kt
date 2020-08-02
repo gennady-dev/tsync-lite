@@ -1,4 +1,4 @@
-package lite.telestorage.services
+package lite.tsync.services
 
 abstract class BackgroundJobManager {
   abstract fun scheduleContentObserverJob()

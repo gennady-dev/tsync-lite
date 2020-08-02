@@ -1,4 +1,4 @@
-package lite.telestorage
+package lite.tsync
 
 
 import android.util.Log
@@ -6,7 +6,6 @@ import android.util.Log
 import org.drinkless.td.libcore.telegram.TdApi
 import org.drinkless.td.libcore.telegram.TdApi.GetChatHistory
 import java.util.*
-import kotlin.concurrent.withLock
 
 
 object Messages {

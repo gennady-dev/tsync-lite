@@ -1,8 +1,8 @@
-package lite.telestorage
+package lite.tsync
 
 import android.util.Log
 //import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.models.FileData
+import lite.tsync.models.FileData
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
 import java.io.IOException

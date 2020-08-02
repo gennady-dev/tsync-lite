@@ -1,10 +1,10 @@
-package lite.telestorage
+package lite.tsync
 
 import android.os.Build
 import android.util.Log
 
 //import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.models.FileData
+import lite.tsync.models.FileData
 import org.drinkless.td.libcore.telegram.Client
 import org.drinkless.td.libcore.telegram.Client.ResultHandler
 import org.drinkless.td.libcore.telegram.TdApi
@@ -769,6 +769,9 @@ object Tg {
 ////            uploadingUpdate(updateFile.file)
 ////          }
           val debug = null
+        }
+        TdApi.Error.CONSTRUCTOR -> {
+          Log.d("UpdatesHandler", "UpdatesHandler $received")
         }
         else -> {
 //          FileUpdates.nextDataTransfer(false)

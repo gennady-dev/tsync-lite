@@ -1,9 +1,9 @@
-package lite.telestorage.services
+package lite.tsync.services
 
 import android.content.Context
 import android.provider.MediaStore
 import androidx.work.*
-import lite.telestorage.Constants
+import lite.tsync.Constants
 import java.util.concurrent.TimeUnit
 
 

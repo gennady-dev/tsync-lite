@@ -1,12 +1,12 @@
-package lite.telestorage.services
+package lite.tsync.services
 
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 
-import lite.telestorage.ContextHolder
-import lite.telestorage.Tg
+import lite.tsync.ContextHolder
+import lite.tsync.Tg
 import kotlin.concurrent.thread
 
 

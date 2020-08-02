@@ -1,4 +1,4 @@
-package lite.telestorage
+package lite.tsync
 
 import android.os.Bundle
 import android.view.*

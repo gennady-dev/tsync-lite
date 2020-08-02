@@ -1,4 +1,4 @@
-package lite.telestorage
+package lite.tsync
 
 import com.obsez.android.lib.filechooser.ChooserDialog
 import android.os.Bundle

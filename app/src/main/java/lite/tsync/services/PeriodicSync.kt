@@ -1,10 +1,10 @@
-package lite.telestorage.services
+package lite.tsync.services
 
 import android.content.Context
 import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
-import lite.telestorage.*
+import lite.tsync.*
 import kotlin.concurrent.thread
 
 

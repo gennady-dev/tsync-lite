@@ -1,4 +1,4 @@
-package lite.telestorage
+package lite.tsync
 
 import android.os.Build.VERSION
 import android.os.Environment

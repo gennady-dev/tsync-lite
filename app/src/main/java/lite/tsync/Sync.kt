@@ -1,7 +1,7 @@
-package lite.telestorage
+package lite.tsync
 
 //import lite.telestorage.kt.database.FileHelper
-import lite.telestorage.models.FileData
+import lite.tsync.models.FileData
 import java.io.File
 import java.util.Date
 import kotlin.concurrent.withLock

@@ -1,4 +1,4 @@
-package lite.telestorage.models
+package lite.tsync.models
 
 class FileData() {
 

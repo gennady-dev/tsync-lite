@@ -1,4 +1,4 @@
-package lite.telestorage.services
+package lite.tsync.services
 
 import android.content.BroadcastReceiver
 import android.content.Context

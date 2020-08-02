@@ -1,16 +1,13 @@
-package lite.telestorage
+package lite.tsync
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.MenuItem
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentManager
 import com.google.android.material.appbar.MaterialToolbar
-import lite.telestorage.services.BackgroundJobManagerImpl
-import lite.telestorage.services.StartService
+import lite.tsync.services.BackgroundJobManagerImpl
+import lite.tsync.services.StartService
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {

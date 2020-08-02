@@ -1,4 +1,4 @@
-package lite.telestorage
+package lite.tsync
 
 class Group {
 

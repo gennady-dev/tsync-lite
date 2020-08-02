@@ -1,7 +1,7 @@
-package lite.telestorage
+package lite.tsync
 
 import android.util.Log
-import lite.telestorage.models.FileData
+import lite.tsync.models.FileData
 import org.drinkless.td.libcore.telegram.TdApi
 import java.io.File
 import java.util.Timer
@@ -10,7 +10,6 @@ import java.util.Date
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.schedule
 import kotlin.concurrent.timer
-import kotlin.concurrent.withLock
 
 object Data {
 
