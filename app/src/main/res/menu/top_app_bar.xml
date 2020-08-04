@@ -4,6 +4,20 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/settingsButton"
+        android:icon="@drawable/ic_settings"
+        android:title="@string/button_settings"
+        android:contentDescription="@string/button_settings_desc"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/helpButton"
+        android:icon="@drawable/ic_help"
+        android:title="@string/button_help"
+        android:contentDescription="@string/button_help_desc"
+        app:showAsAction="ifRoom" />
+
+    <item
         android:id="@+id/syncActionButton"
         android:icon="@drawable/ic_sync_white"
         android:title="@string/text_settings_sync_button"

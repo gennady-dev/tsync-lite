@@ -2,14 +2,21 @@ package lite.tsync
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.appbar.MaterialToolbar
+import dagger.hilt.android.AndroidEntryPoint
 import lite.tsync.services.BackgroundJobManagerImpl
 import lite.tsync.services.StartService
+import javax.inject.Inject
 import kotlin.concurrent.thread
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
   var syncActionButton: MenuItem? = null
@@ -77,7 +84,7 @@ class MainActivity : AppCompatActivity() {
     super.onDestroy()
     sendBroadcast(
       Intent()
-        .setAction("lite.telestorage.background.service")
+        .setAction("lite.tsync.background.service")
         .setClass(this, StartService::class.java)
     )
   }

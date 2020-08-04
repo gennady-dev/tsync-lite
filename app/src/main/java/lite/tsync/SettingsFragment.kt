@@ -5,11 +5,19 @@ import android.os.Bundle
 import android.util.Log
 import android.view.*
 import android.widget.*
+import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
+import dagger.hilt.android.AndroidEntryPoint
+import lite.tsync.databinding.SettingsBinding
 
-class SettingsFragment : Fragment() {
+@AndroidEntryPoint
+class SettingsFragment: Fragment() {
+
+  val viewModel by viewModels<ViewModel>()
+//  @Inject lateinit var viewModel: MainViewModel
 
   private var buttonLogin: Button? = null
   private var progressBar: ProgressBar? = null
@@ -35,24 +43,33 @@ class SettingsFragment : Fragment() {
     container: ViewGroup?,
     savedInstanceState: Bundle?
   ): View? {
-    val v = inflater.inflate(R.layout.settings, container, false)
 
-    imageViewSync = v.findViewById(R.id.imageViewSyncEnabled)
-    textViewSync = v.findViewById(R.id.textViewSyncState)
-    syncDirPathTextView = v.findViewById(R.id.textViewFolderPath)
-    imageViewDelete = v.findViewById(R.id.imageViewDelete)
-    textViewDeleteUploadedCurrent = v.findViewById(R.id.textViewDeleteUploadedCurrent)
-    switchDeleteUploaded = v.findViewById(R.id.switchDeleteUploaded)
-    imageViewUploadMissing = v.findViewById(R.id.imageViewUploadMissing)
-    textViewUploadMissingCurrent = v.findViewById(R.id.textViewUploadMissing)
-    switchUploadMissing = v.findViewById(R.id.switchUploadMissing)
-    switchDownloadMissing = v.findViewById(R.id.switchDownloadMissing)
-    buttonLogin = v.findViewById(R.id.buttonLogin)
-    progressBar = v.findViewById(R.id.loadingProgress)
-    switchSync = v.findViewById(R.id.switchSync)
-    groupNameTextView = v.findViewById(R.id.textViewSelectedGroupName)
-    buttonEditGroup = v.findViewById(R.id.imageViewEditGroup)
-    buttonEditPath = v.findViewById(R.id.imageViewEditFolder)
+    val binding: SettingsBinding = DataBindingUtil.inflate(inflater, R.layout.settings, container, false)
+    val view = binding.root
+    binding.lifecycleOwner = this
+    binding.fragment = this
+    binding.viewModel = viewModel
+
+//    val v = inflater.inflate(R.layout.settings, container, false)
+
+    Log.e("viewModel", viewModel.toString())
+
+    imageViewSync = view.findViewById(R.id.imageViewSyncEnabled)
+    textViewSync = view.findViewById(R.id.textViewSyncState)
+    syncDirPathTextView = view.findViewById(R.id.textViewFolderPath)
+    imageViewDelete = view.findViewById(R.id.imageViewDelete)
+    textViewDeleteUploadedCurrent = view.findViewById(R.id.textViewDeleteUploadedCurrent)
+    switchDeleteUploaded = view.findViewById(R.id.switchDeleteUploaded)
+    imageViewUploadMissing = view.findViewById(R.id.imageViewUploadMissing)
+    textViewUploadMissingCurrent = view.findViewById(R.id.textViewUploadMissing)
+    switchUploadMissing = view.findViewById(R.id.switchUploadMissing)
+    switchDownloadMissing = view.findViewById(R.id.switchDownloadMissing)
+    buttonLogin = view.findViewById(R.id.buttonLogin)
+    progressBar = view.findViewById(R.id.loadingProgress)
+    switchSync = view.findViewById(R.id.switchSync)
+    groupNameTextView = view.findViewById(R.id.textViewSelectedGroupName)
+    buttonEditGroup = view.findViewById(R.id.imageViewEditGroup)
+    buttonEditPath = view.findViewById(R.id.imageViewEditFolder)
 
     buttonLogin?.setText(R.string.button_settings_login)
     buttonLogin?.visibility = View.GONE
@@ -112,27 +129,29 @@ class SettingsFragment : Fragment() {
       }
     }
 
-    buttonEditGroup?.setOnClickListener {
-      if(Settings.authenticated) {
-        showGroupDialog()
-      } else {
-        activity?.also { Toast.makeText(it, R.string.text_settings_not_logged, Toast.LENGTH_LONG).show() }
-      }
-    }
-
-    buttonEditPath?.setOnClickListener {
-      val storagePath: String? = Fs.externalStoragePath
-      if(Settings.path != null){
-        MaterialAlertDialogBuilder(context)
-          .setTitle(R.string.text_settings_change_folder_warning)
-          .setPositiveButton(R.string.button_ok) { _, _ -> showChooserDialog() }
-          .show()
-      } else if(storagePath != null) showChooserDialog()
-    }
-    return v
+    return view
   }
 
-  private fun showChooserDialog(){
+  fun editGroup(): Unit {
+    if(Settings.authenticated) {
+      groupDialog()
+    } else {
+      activity?.also { Toast.makeText(it, R.string.text_settings_not_logged, Toast.LENGTH_LONG).show() }
+    }
+  }
+
+  fun warningDialog(){
+    Log.e("warningDialog", "msg")
+    val storagePath: String? = Fs.externalStoragePath
+    if(Settings.path != null){
+      MaterialAlertDialogBuilder(context)
+        .setTitle(R.string.text_settings_change_folder_warning)
+        .setPositiveButton(R.string.button_ok) { _, _ -> chooserDialog() }
+        .show()
+    } else if(storagePath != null) chooserDialog()
+  }
+
+  private fun chooserDialog(){
     val chooseFolder = context?.getString(R.string.folder_chooser_choose_folder) ?: "Choose folder"
     val choose = context?.getString(R.string.folder_chooser_choose) ?: "Choose"
     val cancel = context?.getString(R.string.folder_chooser_cancel) ?: "Cancel"
@@ -155,20 +174,20 @@ class SettingsFragment : Fragment() {
     }
   }
 
-  private fun showGroupDialog() {
+  private fun groupDialog() {
     MaterialAlertDialogBuilder(context)
       .setTitle(R.string.text_select_group)
       .setItems(R.array.group_list) { dialog, which ->
         dialog.dismiss()
         if(which == 0) {
-          showCreateGroupDialog()
+          createGroupDialog()
         } else if(which == 1) {
-          showGroupListDialog()
+          groupListDialog()
         }
       }.show()
   }
 
-  private fun showGroupListDialog() {
+  private fun groupListDialog() {
     val groups: List<Group> = Tg.groupList
     val groupNameList = arrayOfNulls<String>(groups.size)
     for((i, group) in groups.withIndex()) {
@@ -209,7 +228,7 @@ class SettingsFragment : Fragment() {
     }
   }
 
-  private fun showCreateGroupDialog() {
+  private fun createGroupDialog() {
     val editTextLayout = layoutInflater.inflate(R.layout.edit_text_material, null) as LinearLayout
     val inputEditText: TextInputEditText = editTextLayout.findViewById(R.id.text_input_edit_text)
     inputEditText.setText(R.string.text_settings_default_group_name_text)
