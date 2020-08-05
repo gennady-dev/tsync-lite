@@ -25,6 +25,7 @@
     <string name="text_settings_change_folder_warning">After changing the directory you will need to log in again!</string>
     <string name="text_settings_edit_folder">Edit folders</string>
     <string name="text_settings_folder_not_set">folder not set</string>
+    <string name="text_settings_folder_updated">Folder path was updated</string>
     <string name="text_settings_selected_group">Selected group</string>
     <string name="text_settings_cloud">Cloud</string>
     <string name="text_settings_clear">Clear</string>

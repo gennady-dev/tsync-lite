@@ -2,11 +2,8 @@ package lite.tsync
 
 import android.content.Context
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class Settings @Inject constructor() {
+object Settings2 {
 
   var authenticated = false
   var chatId: Long = 0
@@ -20,7 +17,6 @@ class Settings @Inject constructor() {
   var uploadMissing = true
   var canSend = false
   var device: String? = null
-  var processing = false
 
   init {
     ContextHolder.context?.getSharedPreferences(Constants.settings, Context.MODE_PRIVATE)

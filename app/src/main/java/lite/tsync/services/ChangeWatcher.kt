@@ -20,7 +20,7 @@ class ChangeWatcher(context: Context, params: WorkerParameters) : Worker(context
         e.printStackTrace()
       }
       if(
-        Settings.authenticated
+        Settings2.authenticated
         && (
             Data.lastLocalSync == 0L
             || (Data.lastLocalSync != 0L && Data.lastLocalSync + Data.localSyncPeriod < Date().time)
@@ -29,13 +29,13 @@ class ChangeWatcher(context: Context, params: WorkerParameters) : Worker(context
         Data.lastLocalSync = Date().time
         var type = Type.LOCAL
         if(Data.dbFileList.isEmpty()) type = Type.ALL
-        if(Tg.isConnected) {
+        if(Tg2.isConnected) {
 //          Sync.start(type)
           Sync.start()
         } else {
-          synchronized(Tg){
-            Tg.needUpdate.also {
-              if(it == null) Tg.needUpdate = type
+          synchronized(Tg2){
+            Tg2.needUpdate.also {
+              if(it == null) Tg2.needUpdate = type
             }
           }
         }

@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 
 import lite.tsync.ContextHolder
-import lite.tsync.Tg
+import lite.tsync.Tg2
 import kotlin.concurrent.thread
 
 
@@ -23,7 +23,7 @@ class StartService : BroadcastReceiver() {
       isDaemon = true,
       block = {
         ContextHolder.ctx(context)
-        Tg
+        Tg2
         BackgroundJobManagerImpl(context).scheduleContentObserverJob()
       }
     )

@@ -25,6 +25,7 @@
     <string name="text_settings_change_folder_warning">После изменения директории необходимо будет снова авторизовать приложение в Телеграме!</string>
     <string name="text_settings_edit_folder">Редактировать</string>
     <string name="text_settings_folder_not_set">не указано</string>
+    <string name="text_settings_folder_updated">Путь к директории обновлен</string>
     <string name="text_settings_selected_group">Выбранная группа</string>
     <string name="text_settings_cloud">Облако</string>
     <string name="text_settings_clear">Очистить</string>

@@ -24,7 +24,7 @@ object FileUpdates {
           && file.messageId != 0L
           && file.fileId != 0
           && file.chatId != 0L
-          && Settings.chatId == file.chatId
+          && Settings2.chatId == file.chatId
           && current.path == file.path
           && current.size == file.size
         ){
@@ -64,7 +64,7 @@ object FileUpdates {
   }
 
   private fun deleteUploaded(file: FileData){
-    if(Settings.deleteUploaded){
+    if(Settings2.deleteUploaded){
       file.path?.also {
         Fs.getAbsPath(it)?.also { path ->
           val f = File(path)
@@ -144,7 +144,7 @@ object FileUpdates {
   }
 
   fun newMessageHandler(file: FileData){
-    if(Settings.chatId != 0L && file.chatId == Settings.chatId){
+    if(Settings2.chatId != 0L && file.chatId == Settings2.chatId){
       // если несколько устройств, отключаем текущее, если получено, что уже загружено с другого
 //      Data.current?.also {
 //        if(
@@ -213,10 +213,10 @@ object FileUpdates {
           }
         } else {
           if(!current.uploaded){
-            if(Settings.uploadMissing) Tg.uploadFile(current)
+            if(Settings2.uploadMissing) Tg2.uploadFile(current)
             else nextDataTransfer()
           } else if(!current.downloaded) {
-            if(Settings.downloadMissing) Tg.downloadFile(current)
+            if(Settings2.downloadMissing) Tg2.downloadFile(current)
             else nextDataTransfer()
           }
         }
@@ -230,12 +230,12 @@ object FileUpdates {
   }
 
   fun uploadFile(file: FileData){
-    Tg.uploadFile(file)
+    Tg2.uploadFile(file)
   }
 
   fun downloadFile(file: FileData){
-    if(Settings.downloadMissing){
-      Tg.downloadFile(file)
+    if(Settings2.downloadMissing){
+      Tg2.downloadFile(file)
     } else {
       file.downloaded = true
 //      FileHelper.updateFile(file)
@@ -262,18 +262,18 @@ object FileUpdates {
           if(remote == null){
             local.uploaded = false
             local.downloaded = true
-            if(Settings.uploadMissing) Data.fileQueue.add(local)
+            if(Settings2.uploadMissing) Data.fileQueue.add(local)
           } else {
             remote.maxBy { it.messageId }?.also {
               if(it.size != local.size){
                 if(it.date > local.lastModified){
                   it.downloaded = false
                   it.uploaded = true
-                  if(Settings.downloadMissing) Data.fileQueue.add(it)
+                  if(Settings2.downloadMissing) Data.fileQueue.add(it)
                 } else {
                   local.downloaded = true
                   local.uploaded = false
-                  if(Settings.uploadMissing) Data.fileQueue.add(local)
+                  if(Settings2.uploadMissing) Data.fileQueue.add(local)
                 }
               }
             }
@@ -286,7 +286,7 @@ object FileUpdates {
       remotePathMap[path]?.maxBy { it.messageId }?.also { remote ->
         remote.downloaded = false
         remote.uploaded = true
-        if(Settings.downloadMissing) Data.fileQueue.add(remote)
+        if(Settings2.downloadMissing) Data.fileQueue.add(remote)
       }
     }
 
@@ -294,7 +294,7 @@ object FileUpdates {
       localPathMap[path]?.also { local ->
         local.uploaded = false
         local.downloaded = true
-        if(Settings.uploadMissing) Data.fileQueue.add(local)
+        if(Settings2.uploadMissing) Data.fileQueue.add(local)
       }
     }
 

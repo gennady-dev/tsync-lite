@@ -21,13 +21,13 @@ object Messages {
       lastMessage = null
       messageMap.clear()
     }
-    val chatId: Long = Settings.chatId
+    val chatId: Long = Settings2.chatId
     if(chatId != 0L && !hasFullMessageMap) {
       Data.dataTransferInProgress = Date().time
       val messageId: Long = lastMessage?.id ?: 0
-      Tg.client?.send(
+      Tg2.client?.send(
         GetChatHistory(chatId, messageId, 0, limit, false),
-        Tg.updateHandler
+        Tg2.updateHandler
       )
     }
   }
@@ -73,9 +73,9 @@ object Messages {
   }
 
   fun deleteMsgByIds(){
-    if(Settings.chatId != 0L && Data.msgIdsForDelete.isNotEmpty()){
+    if(Settings2.chatId != 0L && Data.msgIdsForDelete.isNotEmpty()){
       val ids = Data.msgIdsForDelete.toLongArray()
-      Tg.client?.send(TdApi.DeleteMessages(Settings.chatId, ids, true), Tg.updateHandler)
+      Tg2.client?.send(TdApi.DeleteMessages(Settings2.chatId, ids, true), Tg2.updateHandler)
       Data.msgIdsForDelete.clear()
     }
   }

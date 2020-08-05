@@ -13,15 +13,13 @@ import java.util.NavigableSet
 import java.util.TreeSet
 import java.util.Arrays
 import java.util.Date
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlin.collections.ArrayList
 
-@Singleton
-class Tg @Inject constructor() {
+
+object Tg2 {
 
   var syncStatus: SettingsFragment.SyncStatus? = null
-  val tdLibPath = Constants.tdLibPath
+  const val tdLibPath = Constants.tdLibPath
   private var authorizationState: TdApi.AuthorizationState? = null
   var settingsFragment: SettingsFragment? = null
   private var TAG: String? = null
@@ -470,7 +468,7 @@ class Tg @Inject constructor() {
 
   }
 
-  inner class UpdateHandler : ResultHandler {
+  class UpdateHandler : ResultHandler {
 
     override fun onResult(received: TdApi.Object) {
       if(TAG != null) {
@@ -892,7 +890,7 @@ class Tg @Inject constructor() {
     }
   }
 
-  inner class AuthorizationRequestHandler : ResultHandler {
+  class AuthorizationRequestHandler : ResultHandler {
     override fun onResult(update: TdApi.Object) {
       when(update.constructor) {
         TdApi.Error.CONSTRUCTOR -> onAuthorizationStateUpdated(null) // repeat last action

@@ -13,14 +13,14 @@ class PeriodicSync(context: Context, params: WorkerParameters) : Worker(context,
   override fun doWork(): Result {
     Log.d("PeriodicSync", "PeriodicSync doWork")
 
-      if(Settings.authenticated && Data.inProgress == 0L) {
+      if(Settings2.authenticated && Data.inProgress == 0L) {
         thread(){
-          if(Tg.isConnected) {
+          if(Tg2.isConnected) {
             Sync.start()
           } else {
-            synchronized(Tg){
-              Tg.needUpdate.also {
-                if(it == null) Tg.needUpdate = Type.ALL
+            synchronized(Tg2){
+              Tg2.needUpdate.also {
+                if(it == null) Tg2.needUpdate = Type.ALL
               }
             }
           }

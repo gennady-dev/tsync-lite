@@ -3,10 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <data>
-
+        <import type="android.view.View"/>
         <variable
             name="viewModel"
-            type="lite.tsync.ViewModel" />
+            type="lite.tsync.SettingsViewModel" />
+
+        <variable
+            name="settings"
+            type="lite.tsync.Settings" />
 
         <variable
             name="fragment"
@@ -54,13 +58,15 @@
 
             <Button
                 android:id="@+id/buttonLogin"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/button_settings_login"
+                android:text="@{settings.authenticated ? @string/button_settings_logout : @string/button_settings_login}"
+                android:visibility="@{settings.processing ? View.GONE : View.VISIBLE}"
+                android:onClick="@{() -> viewModel.login()}"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="parent"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
 
             <ProgressBar
                 android:id="@+id/loadingProgress"
@@ -70,6 +76,8 @@
                 android:indeterminate="true"
                 android:scaleX="0.7"
                 android:scaleY="0.7"
+                android:visibility="@{settings.processing ? View.VISIBLE : View.GONE}"
+                android:onClick="@{() -> viewModel.login()}"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
@@ -91,17 +99,17 @@
                 android:layout_marginStart="7dp"
                 android:layout_marginTop="5dp"
                 android:contentDescription="@string/text_settings_sync_desc"
+                android:src="@{settings.enabled ? @drawable/ic_sync_enabled : @drawable/ic_sync_disabled}"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:srcCompat="@drawable/ic_sync_disabled" />
+                app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                 android:id="@+id/textViewSyncState"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="@string/text_settings_sync_disabled"
+                android:text="@{settings.enabled ? @string/text_settings_sync_enabled : @string/text_settings_sync_disabled}"
                 android:textAllCaps="false"
                 android:textSize="24sp"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -118,7 +126,9 @@
                 android:layout_marginBottom="8dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="parent"
+                android:checked="@{settings.enabled}"
+                android:onCheckedChanged="@{(_, value) -> viewModel.setSync(value)}" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -139,8 +149,7 @@
                 android:contentDescription="@string/text_settings_edit_folder"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:srcCompat="@drawable/ic_folder_setting"
-                android:onClick="@{() -> fragment.warningDialog()}" />
+                app:srcCompat="@drawable/ic_folder_setting" />
 
             <TextView
                 android:id="@+id/textViewSyncedFolders"
@@ -172,7 +181,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="@string/text_settings_folder_not_set"
+                android:text="@{settings.path ?? @string/text_settings_folder_not_set}"
                 android:textAllCaps="false"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toStartOf="@+id/imageViewEditFolder"
@@ -187,6 +196,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_marginBottom="8dp"
                 android:contentDescription="@string/text_settings_edit_folder"
+                android:onClick="@{() -> fragment.warningDialog()}"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -211,8 +221,7 @@
                 android:contentDescription="@string/text_settings_cloud"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:srcCompat="@drawable/ic_cloud"
-                android:onClick="@{() -> fragment.editGroup()}" />
+                app:srcCompat="@drawable/ic_cloud" />
 
             <TextView
                 android:id="@+id/textViewSelectedGroupTitle"
@@ -232,7 +241,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="5dp"
-                android:text="@string/text_settings_group_not_set"
+                android:text="@{settings.title ?? @string/text_settings_group_not_set}"
                 android:textAllCaps="false"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toStartOf="@+id/imageViewEditGroup"
@@ -247,6 +256,7 @@
                 android:layout_marginEnd="16dp"
                 android:layout_marginBottom="8dp"
                 android:contentDescription="@string/text_settings_edit_group"
+                android:onClick="@{() -> fragment.editGroup()}"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -271,7 +281,8 @@
                 android:contentDescription="@string/text_settings_clear"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:srcCompat="@drawable/ic_not_delete" />
+                app:srcCompat="@drawable/ic_not_delete"
+                android:src="@{settings.deleteUploaded ? @drawable/ic_delete : @drawable/ic_not_delete}" />
 
             <TextView
                 android:id="@+id/textDeleteUploadedTitle"
@@ -291,7 +302,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="5dp"
-                android:text="@string/text_settings_will_not_be_deleted"
+                android:text="@{settings.deleteUploaded ? @string/text_settings_will_be_deleted : @string/text_settings_will_not_be_deleted}"
                 android:textAllCaps="false"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toStartOf="@+id/switchDeleteUploaded"
@@ -307,7 +318,9 @@
                 android:layout_marginBottom="8dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="parent"
+                android:checked="@{settings.deleteUploaded}"
+                android:onCheckedChanged="@{(_, value) -> viewModel.setDeleteUploaded(value)}" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -364,7 +377,9 @@
                 android:layout_marginBottom="8dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="parent"
+                android:checked="@{settings.downloadMissing}"
+                android:onCheckedChanged="@{(_, value) -> viewModel.setDownloadMissing(value)}" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -404,7 +419,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="5dp"
-                android:text="@string/text_settings_upload_missing"
+                android:text="@{settings.uploadMissing ? @string/text_settings_upload_missing : @string/text_settings_not_upload_missing}"
                 android:textAllCaps="false"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toStartOf="@+id/switchUploadMissing"
@@ -421,7 +436,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                android:checked="@{viewModel.uploadMissing}"
+                android:checked="@{settings.uploadMissing}"
                 android:onCheckedChanged="@{(_, value) -> viewModel.setUploadMissing(value)}" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>

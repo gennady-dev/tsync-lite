@@ -24,11 +24,11 @@ object Sync {
   var pathByMsgIdMap: MutableMap<Long, String> = mutableMapOf()
   var fileList: MutableList<FileData> = mutableListOf()
   val ready
-    get() = Settings.authenticated
-      && Settings.enabled
-      && Settings.path != null
-      && Settings.chatId != 0L
-      && Settings.groupId != 0
+    get() = Settings2.authenticated
+      && Settings2.enabled
+      && Settings2.path != null
+      && Settings2.chatId != 0L
+      && Settings2.groupId != 0
 
   fun start(type: Type = Type.ALL) {
 
@@ -61,7 +61,7 @@ object Sync {
 
   fun syncFiles() {
     Data.lock.withLock {
-      if(Settings.path != null) {
+      if(Settings2.path != null) {
         Fs.scanPath()
         for(abs in Data.absPathList) {
           val relPath: String? = Fs.getRelPath(abs)
@@ -69,7 +69,7 @@ object Sync {
             val localFile = File(abs)
             val file = FileData()
             file.path = relPath
-            file.chatId = Settings.chatId
+            file.chatId = Settings2.chatId
             file.name = localFile.name
             file.mimeType = Fs.getMimeType(abs)
             file.downloaded = true

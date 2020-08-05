@@ -26,7 +26,7 @@ object Fs {
   val syncDirAbsPath: String?
     get() {
       val storagePath: String? = externalStoragePath
-      val path: String? = Settings.path
+      val path: String? = Settings2.path
       return if(storagePath != null && path != null) {
         "$storagePath/$path"
       } else null

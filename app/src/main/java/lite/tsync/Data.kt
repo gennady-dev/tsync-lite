@@ -257,8 +257,8 @@ object Data {
   fun addFromMsg(file: FileData){
     val path = file.path
     if(
-      Settings.chatId != 0L
-      && Settings.chatId == file.chatId
+      Settings2.chatId != 0L
+      && Settings2.chatId == file.chatId
       && file.messageId != 0L
       && file.fileId != 0
       && file.fileUniqueId != null
@@ -493,7 +493,7 @@ object Data {
     if(
       update.isPermanent
       && !update.fromCache
-      && update.chatId == Settings.chatId
+      && update.chatId == Settings2.chatId
     ) {
 //      FileUpdates.deleteTimerTask?.cancel()
 //      val dbMsgIdMap = dbFileList.associateBy { it.messageId }
