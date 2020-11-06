@@ -65,6 +65,10 @@ class SettingsViewModel @ViewModelInject constructor(
     }
   }
 
+  fun sendPhone(): Unit {
+
+  }
+
   fun setPath(path: String) {
     viewModelScope.launch {
       val storagePath = Fs.externalStoragePath

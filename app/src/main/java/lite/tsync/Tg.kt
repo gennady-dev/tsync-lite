@@ -163,9 +163,9 @@ class Tg @Inject constructor() {
     }
   }
 
-  fun sendPhone(phone: String) {
+  fun sendPhone(phone: String, onResult: (() -> Unit)? = null) {
     if(client == null) client = Client.create(updateHandler, UpdateExceptionHandler(), DefaultExceptionHandler())
-    client?.send(TdApi.SetAuthenticationPhoneNumber(phone, null), authorizationRequestHandler)
+    client?.send(TdApi.SetAuthenticationPhoneNumber(phone, null), AuthorizationRequestHandler(onResult))
   }
 
   fun sendCode(code: String) {
@@ -892,7 +892,7 @@ class Tg @Inject constructor() {
     }
   }
 
-  inner class AuthorizationRequestHandler : ResultHandler {
+  inner class AuthorizationRequestHandler(var onResult: (() -> Unit)? = null) : ResultHandler {
     override fun onResult(update: TdApi.Object) {
       when(update.constructor) {
         TdApi.Error.CONSTRUCTOR -> onAuthorizationStateUpdated(null) // repeat last action

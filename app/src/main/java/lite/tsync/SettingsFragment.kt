@@ -211,8 +211,8 @@ class SettingsFragment: Fragment() {
     MaterialAlertDialogBuilder(this.context)
       .setView(editTextLayout)
       .setPositiveButton(R.string.button_ok) { _, _ ->
-        inputEditText.text?.toString()?.also {
-          if(it.isNotBlank()) tg.sendPhone(it.trim())
+        inputEditText.text?.toString()?.apply {
+          if(this.isNotBlank()) viewModel.sendPhone(this.trim())
         }
       }
       .show()
